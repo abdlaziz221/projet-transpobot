@@ -114,7 +114,7 @@ export default function Sidebar({ activePage, setActivePage, onLogout, incidentC
           border: '1px solid #bfdbfe' 
         }}>
           <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '4px' }}>Besoin d'aide ?</p>
-          <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '12px' }}>Interrogez notre assistant IA pour analyser vos données.</p>
+          <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '12px' }}>Analyse de données en langage naturel.</p>
           <button 
             onClick={() => setActivePage('chat')}
             style={{ 

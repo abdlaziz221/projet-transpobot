@@ -50,8 +50,8 @@ Railway est une plateforme Cloud qui gère le déploiement automatiquement depui
 
 ---
 
-## 🔒 Notes Importantes sur l'IA en Ligne
-L'IA (Ollama/Mistral) demande beaucoup de puissance (GPU). 
+## 🔒 Notes Importantes sur le moteur de recherche
+L'analyse conversationnelle (Ollama/Mistral) demande beaucoup de puissance (GPU). 
 
 1.  **Solution Gratuite** : Vous pouvez utiliser l'API **Groq** ou **Together AI** qui sont compatibles avec le format OpenAI. Il suffira de changer `LLM_BASE_URL` dans votre `.env` pour pointer vers leur API (ex: `https://api.groq.com/openai/v1`).
 2.  **Solution VPS** : Si votre serveur a moins de 8Go de RAM, Ollama sera très lent ou crashera.

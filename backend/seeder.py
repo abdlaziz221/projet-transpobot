@@ -63,66 +63,54 @@ def seed_all():
                     disponibilite=True, 
                     date_embauche=datetime.date(2022, 1, 1)
                 )
+                    nom=nom, prenom=prenom, telephone=f"77{random.randint(100,999)}4422",
+                    numero_permis=f"P-{random.randint(1000,9999)}", categorie_permis="D",
+                    disponibilite=True, date_embauche=datetime.date(2023, 1, 1)
+                )
+                session.add(c)
                 chauffeurs_objs.append(c)
-            session.add_all(chauffeurs_objs)
-            session.flush()
+            session.commit()
         else:
             chauffeurs_objs = session.query(Chauffeur).all()
 
-        # 4. VÉHICULES (Statuts: actif, maintenance, hors_service)
-        if session.query(Vehicule).count() == 0:
-            print("[COHERENCE] Initialisation de la flotte (statut: actif)...")
-            v_objs = []
-            for i in range(1, 26):
-                v = Vehicule(
-                    immatriculation=f"DK-{random.randint(1000,9999)}-XZ",
-                    type=random.choice(["Bus", "Minibus"]),
-                    capacite=random.choice([25, 60]),
-                    statut="actif",
-                    kilometrage=random.randint(5000, 150000),
-                    date_acquisition=datetime.date(2023, 1, 1)
-                )
-                v_objs.append(v)
-            session.add_all(v_objs)
-            session.flush()
-        else:
-            v_objs = session.query(Vehicule).all()
+        # 5. TARIFS
+        if session.query(Tarif).count() == 0:
+            print("Mise à jour de la grille tarifaire...")
+            for l in lignes_objs:
+                session.add(Tarif(ligne_id=l.id, type_client="Plein tarif", prix=5000))
+                session.add(Tarif(ligne_id=l.id, type_client="Étudiant", prix=3500))
+            session.commit()
 
-        # 5. TRAJETS HISTORIQUES (Statuts: planifie, en_cours, termine, annule)
+        # 6. TRAJETS (Big Data Simulation)
         if session.query(Trajet).count() < 100:
-            print("[COHERENCE] Génération de 500 trajets sans accents...")
-            status_trajets = ["termine", "termine", "termine", "en_cours", "planifie", "annule"]
+            print("Simulation de l'historique des trajets (500+)...")
             for i in range(500):
                 l = random.choice(lignes_objs)
                 v = random.choice(v_objs)
                 c = random.choice(chauffeurs_objs)
-                stat = random.choice(status_trajets)
-                start = datetime.datetime.now() - timedelta(days=random.randint(0, 60))
+                d = datetime.datetime.now() - timedelta(days=random.randint(0, 90))
                 session.add(Trajet(
                     ligne_id=l.id, chauffeur_id=c.id, vehicule_id=v.id,
-                    date_heure_depart=start, statut=stat, nb_passagers=random.randint(1, v.capacite),
-                    recette=random.randint(10000, 200000)
+                    date_heure_depart=d, date_heure_arrivee=d + timedelta(minutes=l.duree_minutes),
+                    statut="termine", nb_passagers=random.randint(10, 70), recette=random.randint(15000, 150000)
                 ))
             session.commit()
-        
-        # 6. INCIDENTS (Types: Accident, Panne, Retard, Comportement, Sécurité | Gravité: faible, moyen, grave)
+
+        # 7. INCIDENTS
         if session.query(Incident).count() == 0:
-            print("[COHERENCE] Alignement des incidents (faible/moyen/grave)...")
-            trajets = session.query(Trajet).limit(100).all()
-            for i in range(40):
-                t = random.choice(trajets)
+            print("Génération des rapports d'incidents...")
+            trajets = session.query(Trajet).limit(40).all()
+            for t in trajets:
                 session.add(Incident(
-                    trajet_id=t.id, 
-                    type=random.choice(["Accident", "Panne", "Retard", "Comportement", "Sécurité"]),
-                    description="Incident automatique simulé pour le dashboard.",
+                    trajet_id=t.id, type=random.choice(["Panne Moteur", "Accident mineur", "Retard important", "Problème Pneu"]),
+                    description="Incident survenu durant le trajet de routine.",
                     gravite=random.choice(["faible", "moyen", "grave"]),
-                    date_incident=t.date_heure_depart,
-                    resolu=random.random() > 0.5
+                    date_incident=t.date_heure_depart, resolu=random.choice([True, False])
                 ))
 
-        # 7. MAINTENANCE (Type: Vidange, Pneumatiques, Freins, Moteur...)
+        # 8. MAINTENANCE
         if session.query(Maintenance).count() == 0:
-            print("[COHERENCE] Génération des maintenances...")
+            print("Génération du journal de maintenance...")
             for i in range(30):
                 v = random.choice(v_objs)
                 session.add(Maintenance(
@@ -134,9 +122,9 @@ def seed_all():
                     effectuee=True
                 ))
 
-        # 8. AFFECTATIONS (Liens Chauffeurs <-> Véhicules)
+        # 9. AFFECTATIONS
         if session.query(Affectation).count() == 0:
-            print("[COHERENCE] Création des affectations officielles...")
+            print("Assignation des chauffeurs aux véhicules...")
             for i in range(min(len(chauffeurs_objs), len(v_objs))):
                 session.add(Affectation(
                     chauffeur_id=chauffeurs_objs[i].id,
@@ -146,7 +134,7 @@ def seed_all():
                 ))
 
         session.commit()
-        print("[COHERENCE] TERMINÉ. Le système est maintenant 100% cohérent.")
+        print("Fin de l'initialisation des données.")
 
 if __name__ == "__main__":
     seed_all()

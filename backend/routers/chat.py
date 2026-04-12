@@ -25,10 +25,10 @@ from slowapi import Limiter
 from slowapi.util import get_remote_address
 limiter = Limiter(key_func=get_remote_address)
 
-def get_db_mastery_context(db: Session) -> str:
-    """Récupère dynamiquement un échantillon des données pour 'éduquer' l'IA."""
+def get_table_samples(db: Session) -> str:
+    """Récupère un aperçu des données pour guider la génération SQL."""
     tables = ["vehicules", "chauffeurs", "lignes", "trajets", "incidents", "maintenance", "affectations"]
-    context = "VALEURS DANS VOTRE BASE (Exemples réels) :\n"
+    context = "VUE RAPIDE DES DONNÉES :\n"
     for table in tables:
         try:
             result = db.execute(text(f"SELECT * FROM `{table}` LIMIT 1"))
@@ -37,54 +37,47 @@ def get_db_mastery_context(db: Session) -> str:
                 d = dict(zip(result.keys(), row))
                 for k,v in d.items(): 
                     if hasattr(v, 'isoformat'): d[k] = v.isoformat()
-                context += f"- Table {table} : {json.dumps(d, ensure_ascii=False)}\n"
+                context += f"- {table} : {json.dumps(d, ensure_ascii=False)}\n"
         except Exception: continue
     return context
 
 SCHEMA_INFO = """
-SCHÉMA SQL DÉTAILLÉ :
-1. vehicules : id, immatriculation, type, capacite, statut ('actif', 'maintenance', 'hors_service')
+SCHÉMA SQL :
+1. vehicules : id, immatriculation, type, capacite, statut (actif, maintenance, hors_service)
 2. chauffeurs : id, nom, prenom, téléphone
-3. trajets : id, ligne_id, chauffeur_id (FK -> chauffeurs.id), vehicule_id (FK -> vehicules.id), statut, recette
-4. incidents : id, trajet_id (FK -> trajets.id), type, description, gravite
-5. affectations : id, chauffeur_id (FK -> chauffeurs.id), vehicule_id (FK -> vehicules.id)
+3. trajets : id, ligne_id, chauffeur_id, vehicule_id, statut, recette
+4. incidents : id, trajet_id, type, description, gravite
+5. affectations : id, chauffeur_id, vehicule_id
 
-RÈGLES DE JOINTURE CRITIQUES :
-- Pour compter les incidents d'un CHAUFFEUR : Tu DOIS passer par la table 'trajets'. 
-  Ex: SELECT count(*) FROM incidents i JOIN trajets t ON i.trajet_id = t.id WHERE t.chauffeur_id = ...
-- Pour savoir qui conduit : Utilise 'affectations' ou 'trajets'.
+LIENS :
+- Chauffeur -> Trajets : t.chauffeur_id = c.id
+- Incident -> Trajets : i.trajet_id = t.id
 """
 
 FEW_SHOT_EXAMPLES = """
-EXEMPLES DE RÉPONSES PARFAITES :
-Q: "combien d'incident pour le chauffeur Awa FAYE ?"
+EXEMPLES :
+Q: "combien d'incident pour Awa FAYE ?"
 A: {
-  "sql": "SELECT COUNT(i.id) as total FROM incidents i JOIN trajets t ON i.trajet_id = t.id JOIN chauffeurs c ON t.chauffeur_id = c.id WHERE c.nom = 'FAYE' AND c.prenom = 'Awa'",
-  "answer": "Le chauffeur Awa FAYE totalise X incidents sur ses trajets."
-}
-
-Q: "Quels véhicules sont en maintenance ?"
-A: {
-  "sql": "SELECT immatriculation, type FROM vehicules WHERE statut = 'maintenance'",
-  "answer": "Les véhicules en maintenance sont..."
+  "sql": "SELECT COUNT(i.id) FROM incidents i JOIN trajets t ON i.trajet_id = t.id JOIN chauffeurs c ON t.chauffeur_id = c.id WHERE c.nom = 'FAYE' AND c.prenom = 'Awa'",
+  "answer": "Awa FAYE a X incidents."
 }
 """
 
 def generate_system_prompt(db: Session):
-    mastery = get_db_mastery_context(db)
-    return f"""Tu es l'Analyste Expert de TranspoBot. Tu réponds UNIQUEMENT en JSON.
+    samples = get_table_samples(db)
+    return f"""Tu es un assistant d'aide à la décision pour la gestion de transport. 
+Tu traduis les questions en requêtes SQL.
 
 {SCHEMA_INFO}
 
-{mastery}
+{samples}
 
 {FEW_SHOT_EXAMPLES}
 
-RÈGLES STRICTES :
-1. N'invente JAMAIS de colonnes (ex: pas de 'trajet_affectation_id').
-2. Utilise des alias (i.id, t.id) pour éviter les noms de colonnes ambigus.
-3. Pour les noms de chauffeurs, cherche TOUJOURS dans la table 'chauffeurs'.
-4. Réponds UNIQUEMENT avec {{"sql": "...", "answer": "..."}}. Aucun texte avant ou après.
+CONSIGNES :
+1. Utilise uniquement des SELECT.
+2. Utilise des alias (i, t, c).
+3. Retourne au format JSON : {{"sql": "...", "answer": "..."}}.
 """
 
 async def invoke_llm(messages: list) -> str:

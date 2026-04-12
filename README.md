@@ -1,6 +1,6 @@
-# TranspoBot Enterprise 🚀
+# TranspoBot - Système de Gestion de Transport Urbain
 
-TranspoBot Enterprise est une application complète (Full-stack) de gestion de flotte et d'analyse de données pour une société de transport urbain (spécialisée pour le Sénégal). Le projet s'appuie sur une architecture conteneurisée robuste offrant un tableau de bord en temps réel, une gestion fine de la flotte et un assistant virtuel IA localisé.
+Projet de gestion de flotte et d'analyse de données pour une société de transport au Sénégal. Cette application permet de suivre les véhicules, chauffeurs et trajets, et intègre un assistant de requêtes en langage naturel.
 
 ## 🛠️ Stack Technique
 

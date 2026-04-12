@@ -42,9 +42,9 @@ except Exception as err:
     # On ne crash pas le container pour pouvoir livre les logs
 
 app = FastAPI(
-    title="TranspoBot Enterprise API",
-    description="Backend robuste pour la gestion de flotte au Sénégal — v3.0 Optimized",
-    version="3.0.0",
+    title="TranspoBot - Système de Gestion",
+    description="Application de gestion de flotte et d'exploitation du réseau de transport.",
+    version="1.0.0",
     docs_url="/docs",
     redoc_url="/redoc"
 )

@@ -37,15 +37,5 @@ db_data/
 .DS_Store
 Thumbs.db
 
-# --- DIVERS / AI ARTIFACTS ---
-TRANSPobot_TECHNICAL_DOCUMENTATION.txt
-TRANSPobot_MASTER_TECHNICAL_DOSSIER.txt
-implementation_plan_*.md
-seeding_plan.md
-big_data_plan.md
-task.md
-walkthrough.md
-AGENTS.md
-CLAUDE.md
-backend/scratch/
-backend/tests/.pytest_cache/
+# --- GUIDES / DOCS ---
+DEPLOYMENT_GUIDE_L3.md

@@ -18,7 +18,7 @@ export default function ChatIA() {
   const [messages, setMessages] = useState<any[]>([
     { 
         role: 'bot', 
-        text: "Bonjour ! Je suis l'assistant TranspoBot. Je peux analyser vos trajets, véhicules, incidents et plus encore. Que souhaitez-vous savoir ?",
+        text: "Bonjour ! Je suis l'assistant de gestion TranspoBot. Je peux vous aider à analyser vos données. Que souhaitez-vous savoir ?",
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         showSql: false
     }
