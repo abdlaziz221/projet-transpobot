@@ -2,12 +2,21 @@
 
 ## Démarrage rapide
 
-1. Créer la base de données :
+1. Créer la base de données : (A ignorer //Moctar)
    mysql -u root -p < schema.sql
 
 2. Configurer l'environnement :
    cp .env.example .env
    # Éditer .env avec vos valeurs
+   ## Connexion dans la base de donnee
+   Installation de MySQL 8.0.45 https://dev.mysql.com/downloads/installer/
+   Connexion via MySQL Workbench
+      connecté sur Local instance MySQL80
+      Créé la base de données : CREATE DATABASE transpobot;
+      Import du schema.sql via file --> Open SQL Script
+      Selectionner le database transpobot avant d'executer le script  avec l'éclair ⚡
+   Renseigner les informations manquantes dans le fichier .env (password)
+   
 
 3. Installer les dépendances :
    pip install -r requirements.txt
