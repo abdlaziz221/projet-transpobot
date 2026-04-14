@@ -18,7 +18,8 @@ const MaintenanceManagement = dynamic(() => import('../components/MaintenanceMan
 const ChatIA = dynamic(() => import('../components/ChatIA'), { ssr: false });
 const LinesManagement = dynamic(() => import('../components/LinesManagement'), { ssr: false });
 const FaresManagement = dynamic(() => import('../components/FaresManagement'), { ssr: false });
-const LoginPage = dynamic(() => import('./login'), { ssr: false });
+const MapView         = dynamic(() => import('../components/MapView'),         { ssr: false });
+const LoginPage       = dynamic(() => import('./login'), { ssr: false });
 
 export default function Home() {
   const [token, setToken] = useState<string | null>(null);
@@ -89,15 +90,17 @@ export default function Home() {
                  {activePage === 'incidents' && 'Gestion des Incidents'}
                  {activePage === 'maintenance' && 'Maintenance du Parc'}
                  {activePage === 'chat' && 'Assistant IA TranspoBot'}
+                 {activePage === 'map'  && 'Carte Temps Réel — Sénégal'}
                </h1>
                <p>
-                 {activePage === 'dashboard' && 'Vue d\'ensemble en temps réel de votre activité.'}
-                 {activePage === 'vehicules' && 'Consultez et gérez vos bus, minibus et taxis.'}
-                 {activePage === 'chauffeurs' && 'Suivi des performances et disponibilités de vos conducteurs.'}
-                 {activePage === 'trips' && 'Historique et surveillance des trajets en cours.'}
-                 {activePage === 'incidents' && 'Signalements techniques et sécurité de la flotte.'}
+                 {activePage === 'dashboard'   && 'Vue d\'ensemble en temps réel de votre activité.'}
+                 {activePage === 'vehicules'   && 'Consultez et gérez vos bus, minibus et taxis.'}
+                 {activePage === 'chauffeurs'  && 'Suivi des performances et disponibilités de vos conducteurs.'}
+                 {activePage === 'trips'       && 'Historique et surveillance des trajets en cours.'}
+                 {activePage === 'incidents'   && 'Signalements techniques et sécurité de la flotte.'}
                  {activePage === 'maintenance' && 'Planification et suivi des interventions mécaniques.'}
-                 {activePage === 'chat' && 'Interrogez vos données en langage naturel.'}
+                 {activePage === 'chat'        && 'Interrogez vos données en langage naturel.'}
+                 {activePage === 'map'         && 'Circulation en temps réel · Positions des véhicules · Incidents actifs'}
                </p>
             </header>
 
@@ -111,6 +114,7 @@ export default function Home() {
               {activePage === 'fares' && <FaresManagement search={globalSearch} setSearch={setGlobalSearch} />}
               {activePage === 'incidents' && <IncidentsManagement search={globalSearch} setSearch={setGlobalSearch} />}
               {activePage === 'maintenance' && <MaintenanceManagement search={globalSearch} setSearch={setGlobalSearch} />}
+              {activePage === 'map'         && <MapView />}
             </section>
           </div>
         </main>

@@ -1,4 +1,4 @@
--- TranspoBot Enterprise - Base de Données Optimisée (Sénégal)
+-- TranspoBot Sénégal 🇸🇳 - Base de Données Optimisée (Sénégal)
 -- Structure complète avec clés étrangères, index et données d'exemple
 
 SET NAMES utf8mb4;

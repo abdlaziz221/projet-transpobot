@@ -1,8 +1,7 @@
-# 🚌 TranspoBot Enterprise - Plateforme IA de Gestion de Flotte
+# 🚌 TranspoBot Sénégal 🇸🇳 - Plateforme IA de Gestion de Flotte
 
-TranspoBot Enterprise est une plateforme corporative alliant la puissance d'une base de données relationnelle (MySQL) à l'Intelligence Artificielle générative. Elle permet d'analyser en temps réel les performances, les finances et les incidents de votre réseau de transport, le tout orchestré par un agent IA conversationnel.
-
----
+TranspoBot Sénégal 🇸🇳 est une plateforme corporative moderne alliant la puissance d'une base de données relationnelle à l'Intelligence Artificielle générative. Elle permet d'analyser en temps réel les performances, les finances, les incidents et l'aspect opérationnel de votre réseau de transport au Sénégal, le tout orchestré par un agent IA conversationnel.
+![TranspoBot Banner](https://via.placeholder.com/1000x300.png?text=TRANSPOBOT+SÉNÉGAL+🇸🇳+AI+)
 
 ## 🚀 Guide d'Installation (De zéro à la Production)
 

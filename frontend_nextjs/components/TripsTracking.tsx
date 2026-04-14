@@ -23,7 +23,7 @@ export default function TripsTracking({ search, setSearch }: any) {
     const [page, setPage] = useState(1);
     const [total, setTotal] = useState(0);
     const [pages, setPages] = useState(1);
-    const [filterStatut, setFilterStatut] = useState('all');
+    const [filterStatut, setFilterStatut] = useState('ouverts');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [lines, setLines] = useState<any[]>([]);
     const [drivers, setDrivers] = useState<any[]>([]);
@@ -46,7 +46,12 @@ export default function TripsTracking({ search, setSearch }: any) {
     async function loadData() {
         setLoading(true);
         try {
-            const statutParam = filterStatut !== 'all' ? `&statut=${filterStatut}` : '';
+            let statutParam = '';
+            if (filterStatut === 'ouverts') {
+                statutParam = '&statut=en_cours&statut=planifie'; // Trajets ouverts
+            } else if (filterStatut !== 'all') {
+                statutParam = `&statut=${filterStatut}`;
+            }
             const [tRes, sRes] = await Promise.all([
                 fetchWithAuth(`/trajets_custom?page=${page}&limit=${LIMIT}${statutParam}`),
                 fetchWithAuth('/stats/trips-summary'),
@@ -208,6 +213,7 @@ export default function TripsTracking({ search, setSearch }: any) {
                                 style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '13px' }}
                             >
                                 <option value="all">Tous les statuts</option>
+                                <option value="ouverts">Dossiers Ouverts</option>
                                 <option value="termine">Terminés</option>
                                 <option value="en_cours">En cours</option>
                                 <option value="planifie">Planifiés</option>
