@@ -21,19 +21,22 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
       left: 0,
       width: '100%',
       height: '100%',
-      background: 'rgba(0,0,0,0.5)',
+      background: 'rgba(15, 23, 42, 0.6)',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       zIndex: 1000,
-      backdropFilter: 'blur(4px)'
+      backdropFilter: 'blur(8px)',
+      animation: 'fadeIn 0.2s ease-out'
     }}>
       <div className="card animate-up" style={{
         width: '500px',
         maxWidth: '90%',
         padding: 0,
         overflow: 'hidden',
-        boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)'
+        boxShadow: 'var(--shadow-xl)',
+        background: 'var(--bg-card)',
+        border: '1px solid var(--border)'
       }}>
         <div style={{
           padding: '20px 24px',
@@ -41,14 +44,30 @@ export default function Modal({ isOpen, onClose, title, children }: ModalProps) 
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          background: 'white'
+          background: 'var(--bg-card)'
         }}>
-          <h2 style={{ fontSize: '18px', fontWeight: 700 }}>{title}</h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
-            <X size={20} />
+          <h2 style={{ fontSize: '18px', fontWeight: 800, color: 'var(--text-main)', letterSpacing: '-0.02em' }}>{title}</h2>
+          <button 
+            onClick={onClose} 
+            style={{ 
+              background: 'var(--bg-subtle)', 
+              border: 'none', 
+              cursor: 'pointer', 
+              color: 'var(--text-muted)',
+              width: '32px',
+              height: '32px',
+              borderRadius: '8px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.2s'
+            }}
+            className="hover-opacity"
+          >
+            <X size={18} />
           </button>
         </div>
-        <div style={{ padding: '24px' }}>
+        <div style={{ padding: '24px', background: 'var(--bg-card)' }}>
           {children}
         </div>
       </div>

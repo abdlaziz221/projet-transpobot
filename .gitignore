@@ -1,9 +1,29 @@
+# --- Méta & Documentation (Ignorés car non nécessaires à l'appli) ---
+*.md
+!README.md
+docs/
+
+# --- Fichiers de test (Ignorés car non déployés) ---
+tests/
+__tests__/
+*.test.js
+*.spec.js
+*.test.jsx
+*.spec.jsx
+*.test.ts
+*.spec.ts
+*.test.tsx
+*.spec.tsx
+test_*.py
+*_test.py
+.pytest_cache/
+.coverage
+coverage/
+
 # --- PYTHON / BACKEND ---
 __pycache__/
 *.py[cod]
 *$py.class
-.pytest_cache/
-.coverage
 .venv/
 venv/
 ENV/
@@ -36,6 +56,3 @@ db_data/
 *.swo
 .DS_Store
 Thumbs.db
-
-# --- GUIDES / DOCS ---
-DEPLOYMENT_GUIDE_L3.md

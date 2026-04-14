@@ -11,25 +11,20 @@ from routers.auth import pwd_context
 
 def seed_all():
     with Session(engine) as session:
-        # 1. UTILISATEURS (Roles: admin, manager, driver)
-        print("[COHERENCE] Synchronisation des accès...")
-        users_to_ensure = [
-            {"username": "admin", "pwd": "admin123", "role": "admin"},
-            {"username": "aziz",  "pwd": "passer",   "role": "admin"}
-        ]
-        for u_data in users_to_ensure:
-            user = session.query(Utilisateur).filter(Utilisateur.username == u_data["username"]).first()
-            if not user:
-                user = Utilisateur(
-                    username=u_data["username"], 
-                    hashed_password=pwd_context.hash(u_data["pwd"]), 
-                    role=u_data["role"], 
-                    created_at=datetime.datetime.now()
-                )
-                session.add(user)
-            else:
-                user.hashed_password = pwd_context.hash(u_data["pwd"])
-        session.commit()
+        # 1. UTILISATEURS (Unique Admin)
+        admin_exists = session.query(Utilisateur).filter_by(username="admin").first()
+        if not admin_exists:
+            print("[COHERENCE] Création de l'admin unique...")
+            admin_user = Utilisateur(
+                username="admin", 
+                hashed_password=pwd_context.hash("passer"), 
+                role="admin", 
+                created_at=datetime.datetime.now()
+            )
+            session.add(admin_user)
+            session.commit()
+        else:
+            print("[COHERENCE] Admin déjà présent.")
 
         # 2. LIGNES
         if session.query(Ligne).count() == 0:
@@ -63,22 +58,53 @@ def seed_all():
                     disponibilite=True, 
                     date_embauche=datetime.date(2022, 1, 1)
                 )
-                    nom=nom, prenom=prenom, telephone=f"77{random.randint(100,999)}4422",
-                    numero_permis=f"P-{random.randint(1000,9999)}", categorie_permis="D",
-                    disponibilite=True, date_embauche=datetime.date(2023, 1, 1)
-                )
                 session.add(c)
                 chauffeurs_objs.append(c)
             session.commit()
         else:
             chauffeurs_objs = session.query(Chauffeur).all()
 
+        # 4. VEHICULES
+        if session.query(Vehicule).count() == 0:
+            print("[COHERENCE] Préparation de la flotte...")
+            types = [("Bus", 70), ("Minibus", 35), ("Express", 50)]
+            v_objs = []
+            for i in range(1, 31):
+                vt, cap = random.choice(types)
+                v = Vehicule(
+                    immatriculation=f"DK-{random.randint(1000,9999)}-BC",
+                    type=vt, 
+                    capacite=cap, 
+                    statut=random.choice(['actif', 'actif', 'actif', 'maintenance', 'inactif']),
+                    kilometrage=random.randint(10000, 250000),
+                    date_acquisition=datetime.date(2021, 1, 1)
+                )
+                v_objs.append(v)
+            session.add_all(v_objs)
+            session.commit()
+        else:
+            v_objs = session.query(Vehicule).all()
+
         # 5. TARIFS
         if session.query(Tarif).count() == 0:
             print("Mise à jour de la grille tarifaire...")
+            today = datetime.date.today()
+            year_end = datetime.date(today.year, 12, 31)
             for l in lignes_objs:
-                session.add(Tarif(ligne_id=l.id, type_client="Plein tarif", prix=5000))
-                session.add(Tarif(ligne_id=l.id, type_client="Étudiant", prix=3500))
+                session.add(Tarif(
+                    ligne_id=l.id, 
+                    type_client="Plein tarif", 
+                    prix=5000,
+                    date_debut=today,
+                    date_fin=year_end
+                ))
+                session.add(Tarif(
+                    ligne_id=l.id, 
+                    type_client="Étudiant", 
+                    prix=3500,
+                    date_debut=today,
+                    date_fin=year_end
+                ))
             session.commit()
 
         # 6. TRAJETS (Big Data Simulation)
@@ -119,6 +145,7 @@ def seed_all():
                     description="Contrôle technique périodique.",
                     date_prevue=datetime.date.today() - timedelta(days=random.randint(0, 100)),
                     cout=random.randint(50000, 300000),
+                    kilometrage=v.kilometrage + random.randint(-5000, 0),
                     effectuee=True
                 ))
 

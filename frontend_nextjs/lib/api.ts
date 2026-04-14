@@ -1,5 +1,8 @@
-export const BASE_URL =
-    process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+let base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+if (base.endsWith('/')) base = base.slice(0, -1);
+if (!base.endsWith('/api')) base += '/api';
+
+export const BASE_URL = base;
 
 export async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
     // On force l'inclusion des cookies (HttpOnly) dans les requêtes

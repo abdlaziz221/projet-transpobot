@@ -1,15 +1,15 @@
-/* eslint-disable */
-'use client';
 import React, { useEffect, useState } from 'react';
-import { Plus, Search, Trash2, MapPin, Navigation, Clock, FileSpreadsheet } from 'lucide-react';
+import { Plus, Search, Trash2, MapPin, Navigation, Clock, FileSpreadsheet, Activity } from 'lucide-react';
 import { fetchWithAuth } from '../lib/api';
 import { exportToExcel } from '../lib/excelUtils';
 import Modal from './Modal';
-import toast from 'react-hot-toast';
+import { Card, Button, Input, Badge, DataTable } from './ui';
+import { useToast } from './ui/Toast';
 
 export default function LinesManagement({ search, setSearch }: any) {
     const [lines, setLines] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
+    const toast = useToast();
     
     const [isAddOpen, setIsAddOpen] = useState(false);
     const [addForm, setAddForm] = useState({
@@ -20,9 +20,14 @@ export default function LinesManagement({ search, setSearch }: any) {
 
     async function loadLines() {
         setLoading(true);
-        const res = await fetchWithAuth('/lignes');
-        if (res.ok) setLines(await res.json());
-        setLoading(false);
+        try {
+            const res = await fetchWithAuth('/lignes');
+            if (res.ok) setLines(await res.json());
+        } catch (e) {
+            toast.error("Erreur", "Chargement des lignes échoué.");
+        } finally {
+            setLoading(false);
+        }
     }
 
     async function handleAdd(e: React.FormEvent) {
@@ -33,127 +38,117 @@ export default function LinesManagement({ search, setSearch }: any) {
             body: JSON.stringify(addForm)
         });
         if (res.ok) {
-            toast.success('Ligne ajoutée avec succès !');
+            toast.success('Succès', 'Ligne ajoutée au réseau !');
             setIsAddOpen(false);
             setAddForm({ code: '', nom: '', origine: '', destination: '', distance_km: 0, duree_minutes: 0 });
             loadLines();
-        } else toast.error("Erreur lors de l'ajout.");
+        } else toast.error("Erreur", "L'ajout a échoué.");
     }
 
     async function handleDelete(id: number, code: string) {
-        if (!confirm(`Supprimer la ligne ${code} ? cela impactera les trajets liés.`)) return;
+        if (!confirm(`Supprimer la ligne ${code} ? Cela impactera tous les trajets associés.`)) return;
         const res = await fetchWithAuth(`/lignes/${id}`, { method: 'DELETE' });
-        if (res.ok) { toast.success('Ligne supprimée'); loadLines(); }
-        else toast.error('Suppression impossible.');
+        if (res.ok) { 
+            toast.success('Supprimé', 'Ligne retirée du réseau.'); 
+            loadLines(); 
+        } else toast.error('Erreur', 'Impossible de supprimer cette ligne.');
     }
 
-    const filtered = lines.filter(l =>
-        l.code.toLowerCase().includes(search.toLowerCase()) ||
-        l.nom.toLowerCase().includes(search.toLowerCase()) ||
-        l.origine.toLowerCase().includes(search.toLowerCase()) ||
-        l.destination.toLowerCase().includes(search.toLowerCase())
-    );
+    const columns = [
+        { 
+            key: 'code', 
+            label: 'ID / Code', 
+            render: (v: any) => <Badge variant="info" size="sm" style={{ fontWeight: 800 }}>{v}</Badge> 
+        },
+        { 
+            key: 'nom', 
+            label: 'Nom de la Ligne', 
+            render: (v: any) => <span style={{ fontWeight: 700 }}>{v}</span> 
+        },
+        { 
+            key: 'origine', 
+            label: 'Itinéraire', 
+            render: (v: any, row: any) => (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontWeight: 500 }}>{v}</span>
+                    <span style={{ color: 'var(--text-muted)' }}>→</span>
+                    <span style={{ fontWeight: 500 }}>{row.destination}</span>
+                </div>
+            )
+        },
+        { 
+            key: 'distance_km', 
+            label: 'Distance', 
+            render: (v: any) => <span>{v} km</span> 
+        },
+        { 
+            key: 'duree_minutes', 
+            label: 'Temps Estimé', 
+            render: (v: any) => (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)' }}>
+                    <Clock size={14} />
+                    <span>{v} min</span>
+                </div>
+            )
+        },
+        { 
+            key: 'id', 
+            label: 'Actions', 
+            style: { textAlign: 'right' as const },
+            render: (v: any, row: any) => (
+                <Button variant="ghost" size="sm" onClick={() => handleDelete(v, row.code)} style={{ color: 'var(--danger)' }}>
+                    <Trash2 size={16} />
+                </Button>
+            )
+        }
+    ];
 
     return (
         <div className="animate-up">
-            {/* TOOLBAR */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', gap: '12px', flexWrap: 'wrap' }}>
-                <div style={{ display: 'flex', gap: '12px', flex: 1 }}>
-                    <div style={{ position: 'relative', flex: 1, maxWidth: '360px' }}>
-                        <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
-                        <input
-                            type="text"
-                            placeholder="Rechercher une ligne..."
-                            value={search}
-                            onChange={e => setSearch(e.target.value)}
-                            style={{ paddingLeft: '38px' }}
-                        />
-                    </div>
-                </div>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                    <button className="btn-secondary" onClick={() => exportToExcel(filtered, 'Liste_Lignes_TranspoBot')}>
-                        <FileSpreadsheet size={18} /> Excel
-                    </button>
-                    <button className="btn-primary" onClick={() => setIsAddOpen(true)}>
-                        <Plus size={18} /> Nouvelle Ligne
-                    </button>
-                </div>
-            </div>
+            <Card padding="none">
+                <DataTable 
+                    title="Cartographie des Lignes"
+                    subtitle="Gestion des axes de transport du réseau"
+                    columns={columns}
+                    data={lines.filter(l =>
+                        (l.code?.toLowerCase() || '').includes(search.toLowerCase()) ||
+                        (l.nom?.toLowerCase() || '').includes(search.toLowerCase()) ||
+                        (l.origine?.toLowerCase() || '').includes(search.toLowerCase()) ||
+                        (l.destination?.toLowerCase() || '').includes(search.toLowerCase())
+                    )}
+                    loading={loading}
+                    onSearch={setSearch}
+                    searchPlaceholder="Code, ville, nom..."
+                    actions={
+                        <div style={{ display: 'flex', gap: '8px' }}>
+                            <Button variant="outline" size="md" onClick={() => exportToExcel(lines, 'Liste_Lignes')}>
+                                <FileSpreadsheet size={18} />
+                            </Button>
+                            <Button variant="primary" size="md" onClick={() => setIsAddOpen(true)}>
+                                <Plus size={18} /> Nouvelle Ligne
+                            </Button>
+                        </div>
+                    }
+                />
+            </Card>
 
-            {/* TABLE */}
-            <div className="card" style={{ padding: 0 }}>
-                <div className="table-wrapper" style={{ border: 'none', boxShadow: 'none' }}>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Code</th>
-                                <th>Nom de la Ligne</th>
-                                <th>Itinéraire</th>
-                                <th>Distance</th>
-                                <th>Durée Est.</th>
-                                <th style={{ textAlign: 'right' }}>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {loading ? (
-                                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '48px' }}><div className="spinner" style={{ margin: '0 auto' }}></div></td></tr>
-                            ) : filtered.length === 0 ? (
-                                <tr><td colSpan={6} style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>Aucune ligne trouvée.</td></tr>
-                            ) : filtered.map(l => (
-                                <tr key={l.id}>
-                                    <td><span className="badge badge-info" style={{ fontWeight: 700 }}>{l.code}</span></td>
-                                    <td style={{ fontWeight: 600 }}>{l.nom}</td>
-                                    <td>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px' }}>
-                                            <MapPin size={14} color="var(--primary)" />
-                                            <span>{l.origine}</span>
-                                            <span style={{ color: 'var(--text-muted)' }}>→</span>
-                                            <span>{l.destination}</span>
-                                        </div>
-                                    </td>
-                                    <td>{l.distance_km} km</td>
-                                    <td>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--text-muted)', fontSize: '13px' }}>
-                                            <Clock size={14} />
-                                            {l.duree_minutes} min
-                                        </div>
-                                    </td>
-                                    <td style={{ textAlign: 'right' }}>
-                                        <button className="icon-btn danger" title="Supprimer" onClick={() => handleDelete(l.id, l.code)} style={{ color: 'var(--danger)' }}>
-                                            <Trash2 size={16} />
-                                        </button>
-                                    </td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            {/* MODAL AJOUT */}
-            <Modal isOpen={isAddOpen} onClose={() => setIsAddOpen(false)} title="Créer une Nouvelle Ligne">
-                <form onSubmit={handleAdd} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '12px' }}>
-                        <div><label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Code *</label>
-                            <input type="text" placeholder="ex: L01" required value={addForm.code} onChange={e => setAddForm({ ...addForm, code: e.target.value })} /></div>
-                        <div><label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Nom complet *</label>
-                            <input type="text" placeholder="ex: Dakar PFA" required value={addForm.nom} onChange={e => setAddForm({ ...addForm, nom: e.target.value })} /></div>
+            <Modal isOpen={isAddOpen} onClose={() => setIsAddOpen(false)} title="Ajouter une Ligne au Réseau">
+                <form onSubmit={handleAdd} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '16px' }}>
+                        <Input label="Code Ligne" placeholder="ex: L01" required value={addForm.code} onChange={(e: any) => setAddForm({ ...addForm, code: e.target.value })} />
+                        <Input label="Désignation" placeholder="ex: Express Plateau" required value={addForm.nom} onChange={(e: any) => setAddForm({ ...addForm, nom: e.target.value })} />
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                        <div><label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Origine *</label>
-                            <input type="text" placeholder="Lieu de départ" required value={addForm.origine} onChange={e => setAddForm({ ...addForm, origine: e.target.value })} /></div>
-                        <div><label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Destination *</label>
-                            <input type="text" placeholder="Lieu d'arrivée" required value={addForm.destination} onChange={e => setAddForm({ ...addForm, destination: e.target.value })} /></div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                        <Input label="Ville de Départ" placeholder="Origine" required value={addForm.origine} onChange={(e: any) => setAddForm({ ...addForm, origine: e.target.value })} />
+                        <Input label="Ville d'Arrivée" placeholder="Destination" required value={addForm.destination} onChange={(e: any) => setAddForm({ ...addForm, destination: e.target.value })} />
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                        <div><label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Distance (km) *</label>
-                            <input type="number" step="0.1" required value={addForm.distance_km} onChange={e => setAddForm({ ...addForm, distance_km: +e.target.value })} /></div>
-                        <div><label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Durée estimée (min) *</label>
-                            <input type="number" required value={addForm.duree_minutes} onChange={e => setAddForm({ ...addForm, duree_minutes: +e.target.value })} /></div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                        <Input label="Distance (KM)" type="number" step="0.1" required value={addForm.distance_km} onChange={(e: any) => setAddForm({ ...addForm, distance_km: +e.target.value })} />
+                        <Input label="Temps (MIN)" type="number" required value={addForm.duree_minutes} onChange={(e: any) => setAddForm({ ...addForm, duree_minutes: +e.target.value })} />
                     </div>
-                    <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '8px' }}>
-                        <button type="button" className="btn-secondary" onClick={() => setIsAddOpen(false)}>Annuler</button>
-                        <button type="submit" className="btn-primary">Enregistrer</button>
+                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '8px' }}>
+                        <Button variant="ghost" onClick={() => setIsAddOpen(false)}>Annuler</Button>
+                        <Button variant="primary" type="submit">Valider la Création</Button>
                     </div>
                 </form>
             </Modal>

@@ -1,20 +1,30 @@
+import os
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 from dotenv import load_dotenv
-import os
 
 load_dotenv()
 
-DB_USER = os.getenv("DB_USER", "root")
-DB_PASSWORD = os.getenv("DB_PASSWORD", "")
-DB_HOST = os.getenv("DB_HOST", "localhost")
-DB_NAME = os.getenv("DB_NAME", "transpobot")
+# 1. Récupération de l'URL de connexion (Priorité au Cloud)
+DATABASE_URL = os.getenv("DATABASE_URL")
 
-# Force UTF-8mb4 for full emoji and accent support
-SQLALCHEMY_DATABASE_URL = f"mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}?charset=utf8mb4"
+if not DATABASE_URL:
+    # Mode Local XAMPP
+    DB_USER = os.getenv("DB_USER", "root")
+    DB_PASSWORD = os.getenv("DB_PASSWORD", "")
+    DB_HOST = os.getenv("DB_HOST", "host.docker.internal")
+    DB_NAME = os.getenv("DB_NAME", "transpobot")
+    
+    # Construction propre pour gérer le mot de passe vide
+    pass_part = f":{DB_PASSWORD}" if DB_PASSWORD else ""
+    DATABASE_URL = f"mysql+pymysql://{DB_USER}{pass_part}@{DB_HOST}/{DB_NAME}?charset=utf8mb4"
+else:
+    # Correction pour Railway (parfois l'URL commence par mysql:// au lieu de mysql+pymysql://)
+    if DATABASE_URL.startswith("mysql://"):
+        DATABASE_URL = DATABASE_URL.replace("mysql://", "mysql+pymysql://", 1)
 
 engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
+    DATABASE_URL,
     pool_size=10,
     max_overflow=20,
     pool_recycle=3600,

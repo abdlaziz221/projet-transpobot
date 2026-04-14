@@ -11,10 +11,21 @@ import {
   LogOut,
   Wrench,
   Route,
-  Tag
+  Tag,
+  ChevronLeft,
+  ChevronRight,
+  HelpCircle
 } from 'lucide-react';
+import { Button } from './ui';
 
-export default function Sidebar({ activePage, setActivePage, onLogout, incidentCount = 0 }: any) {
+export default function Sidebar({ 
+  activePage, 
+  setActivePage, 
+  onLogout, 
+  incidentCount = 0,
+  isCollapsed = false,
+  toggleCollapse
+}: any) {
   const items = [
     { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
     { id: 'vehicules', icon: Bus, label: 'Véhicules' },
@@ -28,17 +39,18 @@ export default function Sidebar({ activePage, setActivePage, onLogout, incidentC
   ];
 
   return (
-    <aside className="sidebar" style={{
-      width: 'var(--sidebar-w)', 
-      height: '100vh', 
-      background: 'var(--surface)', 
+    <aside className={`sidebar ${isCollapsed ? 'collapsed' : ''}`} style={{
+      width: isCollapsed ? 'var(--sidebar-w-collapsed)' : 'var(--sidebar-w)',
+      height: '100vh',
+      background: 'var(--surface)',
       borderRight: '1px solid var(--border)',
-      position: 'fixed', 
-      left: 0, 
+      position: 'fixed',
+      left: 0,
       top: 0,
-      display: 'flex', 
+      display: 'flex',
       flexDirection: 'column',
-      zIndex: 100
+      zIndex: 100,
+      transition: 'width var(--transition-base)'
     }}>
       {/* LOGO SECTION */}
       <div className="sidebar-logo" style={{ 
@@ -46,57 +58,71 @@ export default function Sidebar({ activePage, setActivePage, onLogout, incidentC
         alignItems: 'center', 
         gap: '12px', 
         padding: '24px 20px', 
-        borderBottom: '1px solid var(--border)' 
+        borderBottom: '1px solid var(--border)',
+        overflow: 'hidden',
+        whiteSpace: 'nowrap'
       }}>
         <div style={{ 
-          width: '36px', 
+          minWidth: '36px', 
           height: '36px', 
-          background: 'var(--primary)', 
+          background: 'var(--gradient-primary)', 
           borderRadius: '10px', 
           display: 'flex', 
           alignItems: 'center', 
           justifyContent: 'center',
-          color: 'white'
+          color: 'white',
+          boxShadow: 'var(--shadow-sm)'
         }}>
           <Bus size={20} />
         </div>
-        <span style={{ fontSize: '18px', fontWeight: 700, letterSpacing: '-0.02em' }}>TranspoBot</span>
+        {!isCollapsed && (
+            <span style={{ fontSize: '18px', fontWeight: 800, letterSpacing: '-0.02em', color: 'var(--text-main)', fontFamily: 'var(--font-heading)' }}>
+                Transpo<span style={{ color: 'var(--primary)' }}>Bot</span>
+            </span>
+        )}
       </div>
       
       {/* NAVIGATION */}
-      <nav style={{ flex: 1, padding: '16px 12px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+      <nav style={{ flex: 1, padding: '16px 12px', display: 'flex', flexDirection: 'column', gap: '4px', overflowY: 'auto', overflowX: 'hidden' }}>
         {items.map(Item => (
           <button 
             key={Item.id} 
             onClick={() => setActivePage(Item.id)}
+            className={`sidebar-link ${activePage === Item.id ? 'active' : ''}`}
+            title={isCollapsed ? Item.label : ''}
             style={{ 
               display: 'flex', 
               alignItems: 'center', 
               gap: '12px', 
               padding: '10px 14px', 
-              borderRadius: '8px', 
+              borderRadius: 'var(--radius-md)', 
               cursor: 'pointer',
               border: 'none',
               textAlign: 'left',
               width: '100%',
               fontSize: '14px',
               fontWeight: activePage === Item.id ? 600 : 500,
-              transition: 'all 0.2s',
+              transition: 'all var(--transition-fast)',
               background: activePage === Item.id ? 'var(--primary-light)' : 'transparent',
-              color: activePage === Item.id ? 'var(--primary)' : 'var(--text-muted)'
+              color: activePage === Item.id ? 'var(--primary)' : 'var(--text-muted)',
+              position: 'relative'
             }}
-            className={activePage === Item.id ? 'active' : ''}
           >
-            <Item.icon size={18} strokeWidth={activePage === Item.id ? 2.5 : 2} />
-            <span style={{ flex: 1 }}>{Item.label}</span>
-            {Item.badge > 0 && (
-              <span style={{ 
-                background: 'var(--danger)', 
-                color: 'white', 
-                fontSize: '10px', 
-                padding: '2px 6px', 
-                borderRadius: '10px',
-                fontWeight: 700
+            <Item.icon size={20} strokeWidth={activePage === Item.id ? 2.5 : 2} style={{ minWidth: '20px' }} />
+            {!isCollapsed && <span style={{ transition: 'opacity 0.2s', opacity: 1 }}>{Item.label}</span>}
+            
+            {(Item.badge > 0) && (
+              <span className="badge badge-danger badge-sm" style={{ 
+                position: isCollapsed ? 'absolute' : 'static',
+                top: isCollapsed ? '4px' : 'auto',
+                right: isCollapsed ? '4px' : 'auto',
+                marginLeft: isCollapsed ? 0 : 'auto',
+                minWidth: '18px',
+                height: '18px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '0 4px'
               }}>
                 {Item.badge}
               </span>
@@ -105,58 +131,80 @@ export default function Sidebar({ activePage, setActivePage, onLogout, incidentC
         ))}
       </nav>
       
-      {/* HELP CARD */}
-      <div style={{ padding: '16px 12px' }}>
-        <div style={{ 
-          background: 'var(--primary-light)', 
-          padding: '16px', 
-          borderRadius: 'var(--radius)', 
-          border: '1px solid #bfdbfe' 
-        }}>
-          <p style={{ fontSize: '13px', fontWeight: 600, color: 'var(--text-main)', marginBottom: '4px' }}>Besoin d'aide ?</p>
-          <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '12px' }}>Analyse de données en langage naturel.</p>
-          <button 
-            onClick={() => setActivePage('chat')}
-            style={{ 
-              width: '100%', 
-              background: 'var(--primary)', 
-              color: 'white', 
-              border: 'none', 
-              padding: '8px', 
-              borderRadius: '6px', 
-              fontSize: '12px', 
-              fontWeight: 600,
-              cursor: 'pointer'
-            }}
-          >
-            Ouvrir l'IA
-          </button>
+      {/* HELP CARD (only when not collapsed) */}
+      {!isCollapsed && (
+        <div style={{ padding: '16px 12px' }}>
+          <div className="card" style={{ 
+            background: 'var(--primary-light)', 
+            padding: '16px', 
+            borderRadius: 'var(--radius-lg)', 
+            border: '1px solid var(--primary-100)',
+            position: 'relative',
+            overflow: 'hidden'
+          }}>
+            <div style={{ position: 'absolute', right: '-10px', top: '-10px', opacity: 0.1, color: 'var(--primary)' }}>
+                <MessageSquare size={60} />
+            </div>
+            <p style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)', marginBottom: '4px' }}>Besoin d'aide ?</p>
+            <p style={{ fontSize: '11px', color: 'var(--text-muted)', marginBottom: '12px' }}>L'IA analyse vos données en temps réel.</p>
+            <Button 
+              variant="primary" 
+              size="sm"
+              fullWidth
+              onClick={() => setActivePage('chat')}
+            >
+              Lancer l'IA
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* FOOTER / LOGOUT */}
+      {/* COLLAPSE TOGGLE */}
       <button 
-        onClick={onLogout} 
-        style={{ 
-          margin: '0 12px 16px',
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: '12px', 
-          padding: '12px 14px', 
-          borderRadius: '8px', 
-          color: 'var(--danger)', 
-          background: 'transparent',
-          border: 'none',
-          cursor: 'pointer',
-          fontSize: '14px',
-          fontWeight: 500,
-          borderTop: '1px solid var(--border)',
-          width: 'calc(100% - 24px)'
+        onClick={toggleCollapse}
+        style={{
+            margin: '0 12px 12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '8px',
+            borderRadius: 'var(--radius-md)',
+            background: 'var(--bg-subtle)',
+            border: 'none',
+            cursor: 'pointer',
+            color: 'var(--text-muted)',
+            transition: 'background 0.2s'
         }}
       >
-        <LogOut size={18} />
-        <span>Déconnexion</span>
+        {isCollapsed ? <ChevronRight size={18} /> : <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><ChevronLeft size={18} /><span style={{ fontSize: '12px', fontWeight: 600 }}>Réduire</span></div>}
       </button>
+
+      {/* FOOTER / LOGOUT */}
+      <div style={{ padding: '0 12px 16px', borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
+        <button 
+          onClick={onLogout} 
+          className="btn-ghost"
+          style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '12px', 
+            padding: '10px 14px', 
+            borderRadius: 'var(--radius-md)', 
+            color: 'var(--danger)', 
+            background: 'transparent',
+            border: 'none',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: 600,
+            width: '100%',
+            justifyContent: isCollapsed ? 'center' : 'flex-start',
+            transition: 'all 0.2s'
+          }}
+        >
+          <LogOut size={20} />
+          {!isCollapsed && <span>Déconnexion</span>}
+        </button>
+      </div>
     </aside>
   );
 }

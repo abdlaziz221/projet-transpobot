@@ -1,13 +1,12 @@
-/* eslint-disable */
-'use client';
 import React, { useEffect, useState } from 'react';
 import {
     AlertTriangle, ShieldAlert, CheckCircle2, Clock,
-    Plus, Check, Filter, Trash2
+    Plus, Check, Filter, Trash2, User, Activity, MoreHorizontal
 } from 'lucide-react';
 import { fetchWithAuth } from '../lib/api';
 import Modal from './Modal';
-import toast from 'react-hot-toast';
+import { Card, Button, Input, Badge, DataTable } from './ui';
+import { useToast } from './ui/Toast';
 import dynamic from 'next/dynamic';
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
 
@@ -24,6 +23,7 @@ export default function IncidentsManagement({ search, setSearch }: any) {
     const [severityFilter, setSeverityFilter] = useState('All');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [trajets, setTrajets] = useState<any[]>([]);
+    const toast = useToast();
 
     const [formData, setFormData] = useState({
         trajet_id: 1,
@@ -49,6 +49,7 @@ export default function IncidentsManagement({ search, setSearch }: any) {
     }, []);
 
     async function loadData() {
+        setLoading(true);
         try {
             const [iRes, rRes, sRes, tRes] = await Promise.all([
                 fetchWithAuth(`/incidents_custom${severityFilter !== 'All' ? `?gravite=${severityFilter}` : ''}`),
@@ -64,9 +65,9 @@ export default function IncidentsManagement({ search, setSearch }: any) {
             if (rRes.ok) setRanking(await rRes.json());
             if (sRes.ok) setStats(await sRes.json());
             if (tRes.ok) setIncidentsByType(await tRes.json());
-            setLoading(false);
         } catch (err) {
-            console.error("Incidents load failed", err);
+            toast.error("Erreur", "Impossible de charger les données d'incidents.");
+        } finally {
             setLoading(false);
         }
     }
@@ -79,32 +80,35 @@ export default function IncidentsManagement({ search, setSearch }: any) {
             body: JSON.stringify({ ...formData, date_incident: new Date().toISOString() })
         });
         if (res.ok) {
-            toast.success('Incident signalé !');
+            toast.success('Signalé', 'Rapport d\'incident enregistré.');
             setIsModalOpen(false);
             setFormData({ trajet_id: 1, type: 'Accident', description: '', gravite: 'moyen', resolu: false, date_incident: new Date().toISOString() });
             loadData();
-        } else toast.error("Erreur lors du signalement.");
+        } else toast.error("Erreur", "Échec de l'envoi du rapport.");
     }
 
     async function resolveIncident(id: number) {
         const res = await fetchWithAuth(`/incidents_custom/${id}/resolve`, { method: 'PATCH' });
         if (res.ok) {
-            toast.success('Incident résolu !');
+            toast.success('Résolu', 'Incident marqué comme traité.');
             loadData();
-        } else toast.error('Erreur lors de la résolution.');
+        } else toast.error('Erreur', 'Impossible de modifier le statut.');
     }
 
     async function handleDelete(id: number) {
         if (!confirm("Supprimer ce rapport d'incident ?")) return;
         const res = await fetchWithAuth(`/incidents/${id}`, { method: 'DELETE' });
         if (res.ok) {
-            toast.success("Incident supprimé.");
+            toast.success("Supprimé", "Rapport retiré de l'historique.");
             loadData();
-        } else toast.error("Erreur lors de la suppression.");
+        } else toast.error("Erreur", "Échec de la suppression.");
     }
 
     const typeColors: Record<string, string> = {
-        Accident: '#ef4444', Panne: '#f59e0b', Retard: '#0ea5e9', Comportement: '#7c3aed'
+        Accident: '#ef4444', 
+        Panne: '#f59e0b', 
+        Retard: '#0ea5e9', 
+        Comportement: '#7c3aed'
     };
 
     const doughnutData = {
@@ -113,186 +117,231 @@ export default function IncidentsManagement({ search, setSearch }: any) {
             data: incidentsByType.map((t: any) => t.nb),
             backgroundColor: incidentsByType.map((t: any) => typeColors[t.type] || '#64748b'),
             borderWidth: 0,
+            hoverOffset: 10
         }]
     };
 
+    const columns = [
+        {
+            key: 'type',
+            label: 'Incident',
+            render: (v: any, row: any) => (
+                <div style={{ maxWidth: '300px' }}>
+                    <p style={{ fontWeight: 700, fontSize: '13px' }}>{v}</p>
+                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any }}>{row.description}</p>
+                    <Badge variant="ghost" size="sm" style={{ marginTop: '4px' }}>{row.ligne}</Badge>
+                </div>
+            )
+        },
+        {
+            key: 'chauffeur',
+            label: 'Chauffeur',
+            render: (v: any) => (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <div style={{ width: '24px', height: '24px', borderRadius: '50%', background: 'var(--bg-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <User size={12} color="var(--primary)" />
+                    </div>
+                    <span style={{ fontSize: '13px' }}>{v}</span>
+                </div>
+            )
+        },
+        {
+            key: 'gravite',
+            label: 'Gravité',
+            render: (v: any) => (
+                <Badge variant={v === 'grave' ? 'danger' : v === 'moyen' ? 'warning' : 'ghost'}>
+                    {v}
+                </Badge>
+            )
+        },
+        {
+            key: 'date_incident',
+            label: 'Date',
+            render: (v: any) => <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{v ? new Date(v).toLocaleDateString('fr-FR') : '—'}</span>
+        },
+        {
+            key: 'resolu',
+            label: 'État',
+            render: (v: any) => (
+                <Badge variant={v ? 'success' : 'warning'} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                    {v ? <CheckCircle2 size={10} /> : <Clock size={10} />}
+                    {v ? 'Traité' : 'En attente'}
+                </Badge>
+            )
+        },
+        {
+            key: 'id',
+            label: 'Action',
+            style: { textAlign: 'right' as const },
+            render: (v: any, row: any) => (
+                <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
+                    {!row.resolu && (
+                        <Button variant="ghost" size="sm" onClick={() => resolveIncident(v)}>
+                            <Check size={16} color="var(--success)" />
+                        </Button>
+                    )}
+                    <Button variant="ghost" size="sm" onClick={() => handleDelete(v)} style={{ color: 'var(--danger)' }}>
+                        <Trash2 size={16} />
+                    </Button>
+                </div>
+            )
+        }
+    ];
+
     return (
         <div className="animate-up">
-            {/* HEADER */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '24px', alignItems: 'center' }}>
-                <h2 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    Statistiques & Rapports
-                </h2>
-                <button className="btn-primary" onClick={() => setIsModalOpen(true)}>
-                    <Plus size={18} /> Signaler un incident
-                </button>
-            </div>
-
             {/* KPIs */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px', marginBottom: '24px' }}>
-                <IncKPI label="Total Incidents" value={incidents.length} icon={<AlertTriangle />} color="#64748b" />
-                <IncKPI label="Critiques (non résolus)" value={stats?.incidents_graves || 0} icon={<ShieldAlert />} color="var(--danger)" />
-                <IncKPI label="À traiter" value={stats?.incidents_ouverts || 0} icon={<Clock />} color="var(--warning)" />
-                <IncKPI label="Résolus" value={incidents.filter(i => i.resolu).length} icon={<CheckCircle2 />} color="var(--success)" />
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '24px' }}>
+                <IncKPI label="Total Incidents" value={incidents.length} icon={<AlertTriangle />} color="var(--text-muted)" />
+                <IncKPI label="Niveau Critique" value={stats?.incidents_graves || 0} icon={<ShieldAlert />} color="var(--danger)" />
+                <IncKPI label="Dossiers Ouverts" value={stats?.incidents_ouverts || 0} icon={<Clock />} color="var(--warning)" />
+                <IncKPI label="Résolus / Archivés" value={incidents.filter(i => i.resolu).length} icon={<CheckCircle2 />} color="var(--success)" />
             </div>
 
-            <div className="split-view">
-                {/* TABLE INCIDENTS */}
-                <div className="card" style={{ padding: 0 }}>
-                    <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <h3 style={{ fontSize: '15px', fontWeight: 700 }}>Historique des Signalements</h3>
-                        <select
-                            value={severityFilter}
-                            onChange={e => setSeverityFilter(e.target.value)}
-                            style={{ width: 'auto', padding: '6px 10px', fontSize: '12px' }}
-                        >
-                            <option value="All">Toutes gravités</option>
-                            <option value="grave">Critique</option>
-                            <option value="moyen">Moyen</option>
-                            <option value="faible">Mineur</option>
-                        </select>
-                    </div>
-                    <div style={{ maxHeight: '500px', overflowY: 'auto' }}>
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>Type / Description</th>
-                                    <th>Chauffeur</th>
-                                    <th>Gravité</th>
-                                    <th>Date</th>
-                                    <th>Statut</th>
-                                    <th>Action</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {loading ? (
-                                    <tr><td colSpan={6} style={{ textAlign: 'center', padding: '40px' }}><div className="spinner" style={{ margin: '0 auto' }}></div></td></tr>
-                                ) : incidents.length === 0 ? (
-                                    <tr><td colSpan={6} style={{ textAlign: 'center', padding: '40px', color: 'var(--text-muted)' }}>Aucun incident trouvé.</td></tr>
-                                ) : (
-                                    incidents
-                                        .filter(i => 
-                                        i.type.toLowerCase().includes(search.toLowerCase()) || 
-                                        i.description.toLowerCase().includes(search.toLowerCase()) ||
-                                        i.chauffeur.toLowerCase().includes(search.toLowerCase())
-                                    )
-                                    .map(i => (
-                                    <tr key={i.id}>
-                                        <td>
-                                            <p style={{ fontWeight: 600, fontSize: '13px' }}>{i.type}</p>
-                                            <p style={{ fontSize: '12px', color: 'var(--text-muted)', maxWidth: '220px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{i.description}</p>
-                                            <p style={{ fontSize: '11px', color: 'var(--info)' }}>{i.ligne}</p>
-                                        </td>
-                                        <td style={{ fontSize: '13px' }}>{i.chauffeur}</td>
-                                        <td>
-                                            <span className={`badge badge-${i.gravite === 'grave' ? 'danger' : i.gravite === 'moyen' ? 'warning' : 'gray'}`}>
-                                                {i.gravite}
-                                            </span>
-                                        </td>
-                                        <td style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
-                                            {i.date_incident ? new Date(i.date_incident).toLocaleDateString('fr-FR') : '—'}
-                                        </td>
-                                        <td>
-                                            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px' }}>
-                                                {i.resolu ? <CheckCircle2 size={14} color="var(--success)" /> : <Clock size={14} color="var(--warning)" />}
-                                                {i.resolu ? 'Résolu' : 'Ouvert'}
-                                            </span>
-                                        </td>
-                                        <td>
-                                            <div style={{ display: 'flex', gap: '8px' }}>
-                                                {!i.resolu && (
-                                                    <button className="icon-btn" onClick={() => resolveIncident(i.id)} title="Marquer résolu">
-                                                        <Check size={15} />
-                                                    </button>
-                                                )}
-                                                <button className="icon-btn" onClick={() => handleDelete(i.id)} title="Supprimer" style={{ color: 'var(--danger)' }}>
-                                                    <Trash2 size={15} />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                )))}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+            <div className="split-view" style={{ gridTemplateColumns: '1fr 320px', gap: '24px' }}>
+                <Card padding="none">
+                    <DataTable 
+                        title="Journal des Événements"
+                        subtitle="Historique des incidents et anomalies réseau"
+                        columns={columns}
+                        data={incidents.filter(i => 
+                            (i.type?.toLowerCase() || '').includes(search.toLowerCase()) || 
+                            (i.description?.toLowerCase() || '').includes(search.toLowerCase()) ||
+                            (i.chauffeur?.toLowerCase() || '').includes(search.toLowerCase())
+                        )}
+                        loading={loading}
+                        onSearch={setSearch}
+                        searchPlaceholder="Type, chauffeur..."
+                        actions={
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <select
+                                    value={severityFilter}
+                                    onChange={e => setSeverityFilter(e.target.value)}
+                                    style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '13px' }}
+                                >
+                                    <option value="All">Toutes gravités</option>
+                                    <option value="grave">Critique</option>
+                                    <option value="moyen">Moyen</option>
+                                    <option value="faible">Mineur</option>
+                                </select>
+                                <Button variant="primary" size="md" onClick={() => setIsModalOpen(true)}>
+                                    <Plus size={18} /> Rapporter
+                                </Button>
+                            </div>
+                        }
+                    />
+                </Card>
 
-                {/* RIGHT COLUMN */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                    {/* Chauffeurs à Risque */}
-                    <div className="card">
-                        <h3 style={{ fontSize: '14px', fontWeight: 700, marginBottom: '16px' }}>Chauffeurs à Risque</h3>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                    <Card>
+                         <h3 style={{ fontSize: '14px', fontWeight: 700, marginBottom: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <Activity size={16} color="var(--primary)" />
+                            Chauffeurs Sous Surveillance
+                        </h3>
                         {ranking.length === 0 ? (
-                            <p style={{ textAlign: 'center', color: 'var(--success)', fontSize: '13px', padding: '20px' }}>✓ Aucun incident signalé ce mois</p>
+                            <div style={{ textAlign: 'center', padding: '30px 0' }}>
+                                <CheckCircle2 size={32} color="var(--success)" style={{ margin: '0 auto 12px', opacity: 0.5 }} />
+                                <p style={{ color: 'var(--text-muted)', fontSize: '13px' }}>Aucun incident majeur ce mois</p>
+                            </div>
                         ) : (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                                 {ranking.map((r: any) => (
                                     <div key={r.id}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '6px', fontSize: '13px' }}>
-                                            <span style={{ fontWeight: 600 }}>{r.chauffeur}</span>
-                                            <div style={{ display: 'flex', gap: '6px' }}>
-                                                {r.graves > 0 && <span className="badge badge-danger" style={{ fontSize: '10px' }}>{r.graves} crit.</span>}
-                                                <span style={{ color: 'var(--text-muted)', fontWeight: 700 }}>{r.total} total</span>
-                                            </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '13px' }}>
+                                            <span style={{ fontWeight: 700 }}>{r.chauffeur}</span>
+                                            <span style={{ color: 'var(--text-muted)', fontWeight: 600 }}>{r.total} signalements</span>
                                         </div>
-                                        <div className="progress-bar">
-                                            <div className="progress-bar-fill" style={{ width: `${(r.total / (ranking[0]?.total || 1)) * 100}%`, background: r.graves > 0 ? 'var(--danger)' : 'var(--warning)' }} />
+                                        <div className="progress-bar" style={{ height: '6px' }}>
+                                            <div className="progress-bar-fill" style={{ width: `${(r.total / (ranking[0]?.total || 1)) * 100}%`, background: r.graves > 0 ? 'var(--danger-gradient)' : 'var(--warning)' }} />
                                         </div>
+                                        {r.graves > 0 && <p style={{ fontSize: '10px', color: 'var(--danger)', fontWeight: 700, marginTop: '4px' }}>⚠ {r.graves} incident(s) critiques</p>}
                                     </div>
                                 ))}
                             </div>
                         )}
-                    </div>
+                    </Card>
 
-                    {/* Répartition par type */}
-                    {incidentsByType.length > 0 && (
-                        <div className="card">
-                            <h3 style={{ fontSize: '14px', fontWeight: 700, marginBottom: '16px' }}>Répartition par Type</h3>
-                            <div style={{ height: '180px', display: 'flex', justifyContent: 'center' }}>
-                                <Doughnut data={doughnutData} options={{ maintainAspectRatio: false, plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } } }, cutout: '65%' }} />
+                    <Card>
+                        <h3 style={{ fontSize: '14px', fontWeight: 700, marginBottom: '20px' }}>Analyse par Typologie</h3>
+                        {incidentsByType.length > 0 ? (
+                            <div style={{ height: '200px', width: '100%', position: 'relative' }}>
+                                <Doughnut 
+                                    data={doughnutData} 
+                                    options={{ 
+                                        maintainAspectRatio: false, 
+                                        plugins: { 
+                                            legend: { 
+                                                position: 'bottom' as const, 
+                                                labels: { 
+                                                    boxWidth: 8, 
+                                                    usePointStyle: true,
+                                                    padding: 15,
+                                                    font: { size: 11, weight: '600' } as any
+                                                } 
+                                            } 
+                                        }, 
+                                        cutout: '75%' 
+                                    }} 
+                                />
+                                <div style={{ position: 'absolute', top: '44%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', pointerEvents: 'none' }}>
+                                    <p style={{ fontSize: '20px', fontWeight: 800 }}>{incidents.length}</p>
+                                    <p style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Total</p>
+                                </div>
                             </div>
-                        </div>
-                    )}
+                        ) : (
+                            <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>Données insuffisantes</p>
+                        )}
+                    </Card>
                 </div>
             </div>
 
-            {/* MODAL SIGNALEMENT */}
-            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Signaler un Incident">
-                <form onSubmit={handleAdd} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                    <div>
-                        <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Trajet concerné *</label>
-                        <select value={formData.trajet_id} onChange={e => setFormData({ ...formData, trajet_id: +e.target.value })}>
+            <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Rapport d'Incident Industriel">
+                <form onSubmit={handleAdd} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Trajet Incriminé *</label>
+                        <select value={formData.trajet_id} onChange={e => setFormData({ ...formData, trajet_id: +e.target.value })} style={{ height: '42px' }}>
                             {trajets.map((t: any) => (
-                                <option key={t.id} value={t.id}>#{t.id} — {t.ligne_code} {t.origine}→{t.destination} ({t.chauffeur})</option>
+                                <option key={t.id} value={t.id}>TR#{t.id} — {t.ligne_code} ({t.chauffeur})</option>
                             ))}
                         </select>
                     </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                        <div>
-                            <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Type d'incident *</label>
-                            <select value={formData.type} onChange={e => setFormData({ ...formData, type: e.target.value })}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Nature de l'incident *</label>
+                            <select value={formData.type} onChange={e => setFormData({ ...formData, type: e.target.value })} style={{ height: '42px' }}>
                                 <option value="Accident">Accident</option>
                                 <option value="Panne">Panne Technique</option>
                                 <option value="Retard">Retard Majeur</option>
                                 <option value="Comportement">Comportement Chauffeur</option>
+                                <option value="Autre">Autre Anomale</option>
                             </select>
                         </div>
-                        <div>
-                            <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Gravité *</label>
-                            <select value={formData.gravite} onChange={e => setFormData({ ...formData, gravite: e.target.value })}>
-                                <option value="faible">Faible / Mineur</option>
-                                <option value="moyen">Moyen</option>
-                                <option value="grave">Critique / Grave</option>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Degré de Gravité *</label>
+                            <select value={formData.gravite} onChange={e => setFormData({ ...formData, gravite: e.target.value })} style={{ height: '42px' }}>
+                                <option value="faible">Mineur (Niveau 1)</option>
+                                <option value="moyen">Moyen (Niveau 2)</option>
+                                <option value="grave">Critique (Niveau 3)</option>
                             </select>
                         </div>
                     </div>
-                    <div>
-                        <label style={{ fontSize: '12px', fontWeight: 600, color: 'var(--text-muted)', display: 'block', marginBottom: '4px' }}>Description détaillée *</label>
-                        <textarea rows={4} required value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} placeholder="Que s'est-il passé ?" />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Observations & Description *</label>
+                        <textarea 
+                            rows={4} 
+                            required 
+                            value={formData.description} 
+                            onChange={e => setFormData({ ...formData, description: e.target.value })} 
+                            placeholder="Détails de l'événement..."
+                            style={{ 
+                                padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', 
+                                fontFamily: 'inherit', fontSize: '14px', resize: 'none'
+                             }}
+                        />
                     </div>
-                    <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                        <button type="button" className="btn-secondary" onClick={() => setIsModalOpen(false)}>Annuler</button>
-                        <button type="submit" className="btn-primary">Envoyer le rapport</button>
+                    <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+                        <Button variant="ghost" onClick={() => setIsModalOpen(false)}>Annuler</Button>
+                        <Button variant="primary" type="submit">Transmettre le Rapport</Button>
                     </div>
                 </form>
             </Modal>
@@ -302,14 +351,18 @@ export default function IncidentsManagement({ search, setSearch }: any) {
 
 function IncKPI({ label, value, icon, color }: any) {
     return (
-        <div className="card" style={{ padding: '16px', display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <div style={{ width: '40px', height: '40px', borderRadius: '8px', background: `${color}15`, color, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                {React.cloneElement(icon, { size: 20 })}
+        <Card style={{ padding: '20px', display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <div style={{ 
+                width: '44px', height: '44px', borderRadius: '12px', 
+                background: `${color}15`, color, 
+                display: 'flex', alignItems: 'center', justifyContent: 'center' 
+            }}>
+                {React.cloneElement(icon, { size: 22 })}
             </div>
             <div>
-                <p style={{ fontSize: '11px', color: 'var(--text-muted)', lineHeight: 1.3 }}>{label}</p>
-                <p style={{ fontSize: '22px', fontWeight: 800, lineHeight: 1.2 }}>{value}</p>
+                <p style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '2px' }}>{label}</p>
+                <p style={{ fontSize: '24px', fontWeight: 800 }}>{value}</p>
             </div>
-        </div>
+        </Card>
     );
 }

@@ -1,10 +1,12 @@
 /* eslint-disable */
 import type { Metadata } from "next";
 import "./globals.css";
+import { ThemeProvider } from "../context/ThemeContext";
+import { ToastProvider } from "../components/ui/Toast";
 
 export const metadata: Metadata = {
-  title: "TranspoBot - Plateforme",
-  description: "Dashboard logistique premium",
+  title: "TranspoBot Enterprise | Intelligence Logistique & Gestion de Flotte",
+  description: "Solution d'intelligence logistique avancée pour la gestion de flottes urbaines, optimisée par IA.",
 };
 
 export default function RootLayout({
@@ -20,7 +22,11 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet" />
       </head>
       <body>
-        {children}
+        <ThemeProvider>
+          <ToastProvider>
+            {children}
+          </ToastProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

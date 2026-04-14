@@ -1,26 +1,14 @@
-/* eslint-disable */
-
-'use client';
 import React, { useEffect, useState } from 'react';
 import { 
-  Users, 
-  Search, 
-  Mail, 
-  Phone, 
-  Calendar, 
-  CreditCard,
-  Target,
-  AlertTriangle,
-  Coins,
-  UserCheck,
-  Plus,
-  Trash2,
-  FileSpreadsheet
+  Users, Search, Mail, Phone, Calendar, CreditCard,
+  Target, AlertTriangle, Coins, UserCheck, Plus, Trash2,
+  FileSpreadsheet, Edit3, ChevronRight, User, MoreVertical, ShieldCheck
 } from 'lucide-react';
 import { fetchWithAuth } from '../lib/api';
 import { exportToExcel } from '../lib/excelUtils';
 import Modal from './Modal';
-import toast from 'react-hot-toast';
+import { Card, Button, Input, Badge, Skeleton } from './ui';
+import { useToast } from './ui/Toast';
 
 export default function DriversManagement({ search, setSearch }: any) {
   const [drivers, setDrivers] = useState<any[]>([]);
@@ -29,36 +17,37 @@ export default function DriversManagement({ search, setSearch }: any) {
   const [detailLoading, setDetailLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const toast = useToast();
 
-  // Form state
   const [formData, setFormData] = useState({
-    nom: '',
-    prenom: '',
-    telephone: '',
-    numero_permis: '',
-    categorie_permis: 'D',
-    disponibilite: true
+    nom: '', prenom: '', telephone: '', numero_permis: '',
+    categorie_permis: 'D', disponibilite: true
   });
 
-  useEffect(() => {
-    loadDrivers();
-  }, []);
+  useEffect(() => { loadDrivers(); }, []);
 
   async function loadDrivers() {
-    const res = await fetchWithAuth('/chauffeurs_custom');
-    if (res.ok) {
-      setDrivers(await res.json());
+    setLoading(true);
+    try {
+        const res = await fetchWithAuth('/chauffeurs_custom');
+        if (res.ok) setDrivers(await res.json());
+    } catch (e) {
+        toast.error("Erreur", "Impossible de charger les chauffeurs.");
+    } finally {
+        setLoading(false);
     }
-    setLoading(false);
   }
 
   async function selectDriver(id: number) {
     setDetailLoading(true);
-    const res = await fetchWithAuth(`/chauffeurs_custom/${id}`);
-    if (res.ok) {
-        setSelectedDriver(await res.json());
+    try {
+        const res = await fetchWithAuth(`/chauffeurs_custom/${id}`);
+        if (res.ok) setSelectedDriver(await res.json());
+    } catch (e) {
+        toast.error("Erreur", "Détails indisponibles.");
+    } finally {
+        setDetailLoading(false);
     }
-    setDetailLoading(false);
   }
 
   async function handleAdd(e: React.FormEvent) {
@@ -66,26 +55,21 @@ export default function DriversManagement({ search, setSearch }: any) {
     const res = await fetchWithAuth('/chauffeurs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            ...formData,
-            date_embauche: new Date().toISOString().split('T')[0]
-        })
+        body: JSON.stringify({ ...formData, date_embauche: new Date().toISOString().split('T')[0] })
     });
     if (res.ok) {
-        toast.success("Chauffeur recruté !");
+        toast.success("Succès", "Nouveau chauffeur recruté !");
         setIsModalOpen(false);
         loadDrivers();
         setFormData({ nom: '', prenom: '', telephone: '', numero_permis: '', categorie_permis: 'D', disponibilite: true });
-    } else {
-        toast.error("Erreur technique.");
-    }
+    } else toast.error("Erreur", "L'ajout a échoué.");
   }
 
   async function handleDelete(id: number) {
-    if (!confirm("Supprimer ce chauffeur ?")) return;
+    if (!confirm("Voulez-vous révoquer ce chauffeur ?")) return;
     const res = await fetchWithAuth(`/chauffeurs/${id}`, { method: 'DELETE' });
     if (res.ok) {
-        toast.success("Chauffeur supprimé.");
+        toast.success("Supprimé", "Chauffeur retiré du registre.");
         setSelectedDriver(null);
         loadDrivers();
     }
@@ -99,13 +83,11 @@ export default function DriversManagement({ search, setSearch }: any) {
         body: JSON.stringify(formData)
     });
     if (res.ok) {
-        toast.success("Informations mises à jour !");
+        toast.success("Mis à jour", "Profil chauffeur actualisé.");
         setIsEditOpen(false);
         loadDrivers();
         selectDriver(selectedDriver.chauffeur.id);
-    } else {
-        toast.error("Échec de la mise à jour.");
-    }
+    } else toast.error("Erreur", "La mise à jour a échoué.");
   }
 
   function openEdit() {
@@ -125,174 +107,222 @@ export default function DriversManagement({ search, setSearch }: any) {
   );
 
   return (
-    <div className="animate-up split-view">
+    <div className="animate-up split-view" style={{ gridTemplateColumns: 'minmax(350px, 1fr) 450px', gap: '24px' }}>
       {/* LEFT COLUMN: LIST */}
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ padding: '20px', borderBottom: '1px solid var(--border)', display: 'flex', gap: '10px' }}>
-          <div style={{ position: 'relative', flex: 1 }}>
-            <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
-            <input 
-              type="text" 
-              placeholder="Chercher..." 
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              style={{ width: '100%', padding: '10px 14px 10px 38px', background: 'var(--bg)', border: '1px solid var(--border)', borderRadius: '10px' }}
-            />
-          </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button className="btn-secondary" style={{ padding: '10px' }} onClick={() => exportToExcel(filtered, 'Liste_Chauffeurs_TranspoBot')}>
-              <FileSpreadsheet size={18} />
-            </button>
-            <button className="btn-primary" style={{ padding: '10px' }} onClick={() => setIsModalOpen(true)}>
-              <Plus size={18} />
-            </button>
-          </div>
+      <Card padding="none" style={{ display: 'flex', flexDirection: 'column' }}>
+        <div style={{ padding: '20px', borderBottom: '1px solid var(--border)', display: 'flex', gap: '12px', alignItems: 'center', background: 'var(--bg-card)' }}>
+             <div style={{ position: 'relative', flex: 1 }}>
+                <Search size={16} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)', pointerEvents: 'none' }} />
+                <input 
+                    type="text" 
+                    placeholder="Chercher un matricule ou nom..." 
+                    value={search}
+                    onChange={(e: any) => setSearch(e.target.value)}
+                    style={{ width: '100%', paddingLeft: '40px', paddingRight: '12px', height: '42px', borderRadius: '10px', border: '1px solid var(--border)', fontSize: '14px', background: 'var(--bg-body)' }}
+                />
+            </div>
+            <Button variant="outline" size="md" onClick={() => exportToExcel(filtered, 'Liste_Chauffeurs')}>
+                <FileSpreadsheet size={18} />
+            </Button>
+            <Button variant="primary" size="md" onClick={() => setIsModalOpen(true)}>
+                <Plus size={18} />
+            </Button>
         </div>
         
-        <div style={{ maxHeight: 'calc(100vh - 350px)', overflowY: 'auto' }}>
+        <div style={{ flex: 1, overflowY: 'auto' }}>
           {loading ? (
-             <div style={{ padding: '40px', textAlign: 'center' }}>Chargement...</div>
+             <div style={{ padding: '20px' }}>
+                {[1,2,3,4,5,6].map(i => <Skeleton key={i} height="70px" style={{ marginBottom: '12px', borderRadius: '12px' }} />)}
+             </div>
+          ) : filtered.length === 0 ? (
+             <div style={{ padding: '60px', textAlign: 'center', color: 'var(--text-muted)' }}>
+                <Users size={48} style={{ opacity: 0.1, marginBottom: '16px', margin: '0 auto' }} />
+                <p style={{ fontWeight: 600 }}>Aucune correspondance</p>
+                <p style={{ fontSize: '13px' }}>Modifiez votre recherche</p>
+             </div>
           ) : (
-            <table style={{ border: 'none' }}>
-              <tbody>
+            <div style={{ padding: '12px' }}>
                 {filtered.map(d => (
-                  <tr 
-                    key={d.id} 
-                    onClick={() => selectDriver(d.id)}
-                    style={{ 
-                        cursor: 'pointer', 
-                        background: selectedDriver?.chauffeur?.id === d.id ? 'var(--primary-light)' : 'transparent'
-                    }}
-                  >
-                    <td>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <div style={{ 
-                            width: '40px', height: '40px', borderRadius: '50%', 
-                            background: `linear-gradient(135deg, ${d.id % 2 === 0 ? '#6366f1' : '#10b981'}, #3b82f6)`,
-                            display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontWeight: 700
-                        }}>
-                          {d.prenom[0]}{d.nom[0]}
+                    <div 
+                        key={d.id} 
+                        onClick={() => selectDriver(d.id)}
+                        style={{ 
+                            display: 'flex', alignItems: 'center', justifyContent: 'space-between', 
+                            padding: '14px 16px', cursor: 'pointer', borderRadius: '12px',
+                            background: selectedDriver?.chauffeur?.id === d.id ? 'var(--primary-light)' : 'transparent',
+                            border: selectedDriver?.chauffeur?.id === d.id ? '1px solid var(--primary-200)' : '1px solid transparent',
+                            marginBottom: '6px',
+                            transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)'
+                        }}
+                        className="driver-card-hover"
+                    >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                            <div style={{ 
+                                width: '44px', height: '44px', borderRadius: '12px', 
+                                background: selectedDriver?.chauffeur?.id === d.id ? 'var(--primary)' : 'var(--bg-subtle)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', 
+                                color: selectedDriver?.chauffeur?.id === d.id ? 'white' : 'var(--primary)', 
+                                fontWeight: 800, fontSize: '14px'
+                            }}>
+                                {d.prenom[0]}{d.nom[0]}
+                            </div>
+                            <div>
+                                <p style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>{d.prenom} {d.nom}</p>
+                                <p style={{ fontSize: '12px', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                    <Phone size={10} /> {d.telephone}
+                                </p>
+                            </div>
                         </div>
-                        <div>
-                          <p style={{ fontWeight: 600, fontSize: '14px' }}>{d.prenom} {d.nom}</p>
-                          <p style={{ fontSize: '12px', color: 'var(--text-muted)' }}>{d. telephone}</p>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <Badge variant={d.disponibilite ? 'success' : 'warning'} size="sm">
+                                {d.disponibilite ? 'Libre' : 'En route'}
+                            </Badge>
+                            <ChevronRight size={16} color="var(--text-muted)" />
                         </div>
-                      </div>
-                    </td>
-                    <td style={{ textAlign: 'right' }}>
-                        <span className={`badge badge-${d.disponibilite ? 'success' : 'warning'}`}>
-                            {d.disponibilite ? 'Libre' : 'Trajet'}
-                        </span>
-                    </td>
-                  </tr>
+                    </div>
                 ))}
-              </tbody>
-            </table>
+            </div>
           )}
         </div>
-      </div>
+      </Card>
 
       {/* RIGHT COLUMN: DETAIL */}
-      <div className="card" style={{ position: 'sticky', top: '24px' }}>
+      <div style={{ position: 'sticky', top: '24px', height: 'fit-content' }}>
         {detailLoading ? (
-            <div style={{ textAlign: 'center', padding: '100px 0' }}><div className="spinner" style={{ margin: '0 auto' }}></div></div>
-        ) : selectedDriver ? (
-          <div>
-            <div style={{ textAlign: 'center', borderBottom: '1px solid var(--border)', paddingBottom: '24px', marginBottom: '24px', position: 'relative' }}>
-                <div style={{ position: 'absolute', top: 0, right: 0, display: 'flex', gap: '10px' }}>
-                    <button 
-                       onClick={openEdit}
-                       style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer' }}
-                    >
-                        <Plus size={18} style={{ transform: 'rotate(45deg)' }} /> {/* Using Plus rotated as placeholder for Edit if Edit2 not imported or similar */}
-                    </button>
-                    <button 
-                       onClick={() => handleDelete(selectedDriver.chauffeur.id)}
-                       style={{ background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer' }}
-                    >
-                        <Trash2 size={18} />
-                    </button>
-                </div>
-                <div style={{ 
-                    width: '80px', height: '80px', borderRadius: '50%', margin: '0 auto 16px',
-                    background: 'linear-gradient(135deg, var(--primary), #7c3aed)',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white', fontSize: '28px', fontWeight: 800
-                }}>
-                    {selectedDriver.chauffeur.prenom[0]}{selectedDriver.chauffeur.nom[0]}
-                </div>
-                <h2 style={{ fontSize: '20px', fontWeight: 700 }}>{selectedDriver.chauffeur.prenom} {selectedDriver.chauffeur.nom}</h2>
-                <div style={{ marginTop: '12px' }}>
-                   <span className={`badge badge-${selectedDriver.chauffeur.disponibilite ? 'success' : 'warning'}`}>
-                     {selectedDriver.chauffeur.disponibilite ? 'Disponible' : 'Occupé'}
-                   </span>
-                </div>
-            </div>
-
-            <div style={{ display: 'grid', gap: '20px' }}>
-                <Section title="Informations Professionnelles">
-                    <InfoRow icon={<Phone size={14}/>} label="Téléphone" value={selectedDriver.chauffeur.telephone} />
-                    <InfoRow icon={<CreditCard size={14}/>} label="Permis" value={selectedDriver.chauffeur.numero_permis} />
-                    <InfoRow icon={<Calendar size={14}/>} label="Cat." value={selectedDriver.chauffeur.categorie_permis} />
-                </Section>
-
-                <Section title="Performance Totale">
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                        <StatBox label="Trajets" value={selectedDriver.stats.trips} icon={<Target size={16} color="var(--primary)"/>} />
-                        <StatBox label="Incidents" value={selectedDriver.stats.incidents} icon={<AlertTriangle size={16} color="var(--danger)"/>} />
-                        <StatBox label="Recettes" value={`${(selectedDriver.stats.revenue / 1000).toFixed(0)}k`} icon={<Coins size={16} color="var(--success)"/>} />
-                        <StatBox label="Passagers" value={selectedDriver.stats.passengers} icon={<UserCheck size={16} color="var(--info)"/>} />
+            <Card padding="lg">
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '20px' }}>
+                    <Skeleton variant="circle" height="100px" width="100px" />
+                    <div style={{ width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+                        <Skeleton height="24px" width="60%" />
+                        <Skeleton height="16px" width="30%" />
                     </div>
-                </Section>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', width: '100%', marginTop: '20px' }}>
+                        {[1,2,3,4].map(i => <Skeleton key={i} height="90px" style={{ borderRadius: '16px' }} />)}
+                    </div>
+                </div>
+            </Card>
+        ) : selectedDriver ? (
+          <Card padding="none" style={{ overflow: 'hidden' }}>
+            <div style={{ 
+                height: '100px', background: 'var(--gradient-primary)', position: 'relative'
+             }} />
+            <div style={{ padding: '0 30px 30px', marginTop: '-50px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '20px' }}>
+                    <div style={{ 
+                        width: '100px', height: '100px', borderRadius: '28px', 
+                        background: 'var(--bg-card)', padding: '6px', boxShadow: 'var(--shadow-lg)'
+                    }}>
+                        <div style={{ 
+                            width: '100%', height: '100%', borderRadius: '22px', 
+                            background: 'var(--bg-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                            fontSize: '32px', fontWeight: 900, color: 'var(--primary)'
+                        }}>
+                             {selectedDriver.chauffeur.prenom[0]}{selectedDriver.chauffeur.nom[0]}
+                        </div>
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                        <Button variant="outline" size="sm" onClick={openEdit}>
+                            <Edit3 size={16} />
+                        </Button>
+                        <Button variant="outline" size="sm" onClick={() => handleDelete(selectedDriver.chauffeur.id)} style={{ color: 'var(--danger)', borderColor: 'rgba(239, 68, 68, 0.2)' }}>
+                            <Trash2 size={16} />
+                        </Button>
+                    </div>
+                </div>
+
+                <div style={{ marginBottom: '30px' }}>
+                    <h2 style={{ fontSize: '24px', fontWeight: 900, color: 'var(--text-main)', letterSpacing: '-0.03em', lineHeight: 1 }}>
+                        {selectedDriver.chauffeur.prenom} {selectedDriver.chauffeur.nom}
+                    </h2>
+                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <ShieldCheck size={14} color="var(--success)" /> Matricule Certifié — {selectedDriver.chauffeur.numero_permis}
+                    </p>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                    <Section title="Informations Professionnelles">
+                        <InfoRow icon={<Phone size={14}/>} label="Contact Direct" value={selectedDriver.chauffeur.telephone} />
+                        <InfoRow icon={<CreditCard size={14}/>} label="Permis de Conduire" value={selectedDriver.chauffeur.numero_permis} />
+                        <InfoRow icon={<Calendar size={14}/>} label="Accréditation" value={`Classe ${selectedDriver.chauffeur.categorie_permis}`} />
+                        <InfoRow icon={<UserCheck size={14}/>} label="Statut Réseau" value={selectedDriver.chauffeur.disponibilite ? 'Opérationnel' : 'En Mission'} />
+                    </Section>
+
+                    <Section title="Tableau de Bord Performance">
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                            <StatBox label="Trajets" value={selectedDriver.stats.trips} icon={<Target size={18} />} color="var(--primary)" />
+                            <StatBox label="Incidents" value={selectedDriver.stats.incidents} icon={<AlertTriangle size={18} />} color="var(--danger)" />
+                            <StatBox label="Recettes" value={`${(selectedDriver.stats.revenue / 1000).toFixed(0)}k`} icon={<Coins size={18} />} color="var(--success)" />
+                            <StatBox label="Passagers" value={selectedDriver.stats.passengers} icon={<Users size={18} />} color="var(--info)" />
+                        </div>
+                    </Section>
+                </div>
             </div>
-          </div>
+          </Card>
         ) : (
-          <div style={{ textAlign: 'center', padding: '100px 20px', color: 'var(--text-muted)' }}>
-             <Users size={48} style={{ opacity: 0.2, marginBottom: '16px' }} />
-             <p>Sélectionnez un profil pour voir les détails.</p>
-          </div>
+          <Card padding="lg" style={{ height: '400px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', textAlign: 'center', border: '2px dashed var(--border)' }}>
+             <div style={{ width: '72px', height: '72px', borderRadius: '24px', background: 'var(--bg-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: '24px', opacity: 0.5 }}>
+                <Users size={32} color="var(--primary)" />
+             </div>
+             <p style={{ fontWeight: 800, fontSize: '16px', color: 'var(--text-main)' }}>Sélectionnez un profil</p>
+             <p style={{ fontSize: '14px', marginTop: '6px', color: 'var(--text-muted)', maxWidth: '240px' }}>Consultez les KPIs détaillés et gérez les informations du chauffeur.</p>
+          </Card>
         )}
       </div>
 
-      <Modal isOpen={isEditOpen} onClose={() => setIsEditOpen(false)} title="Modifier Chauffeur">
-         <form onSubmit={handleUpdate} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <Modal isOpen={isEditOpen} onClose={() => setIsEditOpen(false)} title="Actualiser le Profil Chauffeur">
+         <form onSubmit={handleUpdate} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <input placeholder="Prénom" required value={formData.prenom} onChange={e => setFormData({...formData, prenom: e.target.value})} />
-                <input placeholder="Nom" required value={formData.nom} onChange={e => setFormData({...formData, nom: e.target.value})} />
+                <Input label="Prénom" required value={formData.prenom} onChange={(e: any) => setFormData({...formData, prenom: e.target.value})} />
+                <Input label="Nom" required value={formData.nom} onChange={(e: any) => setFormData({...formData, nom: e.target.value})} />
             </div>
-            <input placeholder="Téléphone" required value={formData.telephone} onChange={e => setFormData({...formData, telephone: e.target.value})} />
+            <Input label="Téléphone" required value={formData.telephone} onChange={(e: any) => setFormData({...formData, telephone: e.target.value})} />
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px' }}>
-                <input placeholder="Numéro Permis" required value={formData.numero_permis} onChange={e => setFormData({...formData, numero_permis: e.target.value})} />
-                <select value={formData.categorie_permis} onChange={e => setFormData({...formData, categorie_permis: e.target.value})}>
-                    <option value="B">B (Voiture)</option>
-                    <option value="C">C (Poids Lourd)</option>
-                    <option value="D">D (Transport)</option>
-                </select>
+                <Input label="Matricule / N° Permis" required value={formData.numero_permis} onChange={(e: any) => setFormData({...formData, numero_permis: e.target.value})} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Type Permis</label>
+                    <select 
+                        value={formData.categorie_permis} 
+                        onChange={e => setFormData({...formData, categorie_permis: e.target.value})}
+                        style={{ height: '42px' }}
+                    >
+                        <option value="B">Classe B</option>
+                        <option value="C">Classe C</option>
+                        <option value="D">Classe D</option>
+                    </select>
+                </div>
             </div>
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '10px' }}>
-                <button type="button" className="btn-secondary" onClick={() => setIsEditOpen(false)}>Annuler</button>
-                <button type="submit" className="btn-primary">Sauvegarder</button>
+                <Button variant="ghost" onClick={() => setIsEditOpen(false)}>Annuler</Button>
+                <Button variant="primary" type="submit">Valider</Button>
             </div>
          </form>
       </Modal>
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Recrutement Chauffeur">
-         <form onSubmit={handleAdd} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Recruter un Nouveau Chauffeur">
+         <form onSubmit={handleAdd} style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
-                <input placeholder="Prénom" required value={formData.prenom} onChange={e => setFormData({...formData, prenom: e.target.value})} />
-                <input placeholder="Nom" required value={formData.nom} onChange={e => setFormData({...formData, nom: e.target.value})} />
+                <Input label="Prénom" placeholder="ex: Mamadou" required value={formData.prenom} onChange={(e: any) => setFormData({...formData, prenom: e.target.value})} />
+                <Input label="Nom" placeholder="ex: Diop" required value={formData.nom} onChange={(e: any) => setFormData({...formData, nom: e.target.value})} />
             </div>
-            <input placeholder="Téléphone (+221...)" required value={formData.telephone} onChange={e => setFormData({...formData, telephone: e.target.value})} />
+            <Input label="Téléphone Mobile" placeholder="+221..." required value={formData.telephone} onChange={(e: any) => setFormData({...formData, telephone: e.target.value})} />
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '16px' }}>
-                <input placeholder="Numéro Permis" required value={formData.numero_permis} onChange={e => setFormData({...formData, numero_permis: e.target.value})} />
-                <select value={formData.categorie_permis} onChange={e => setFormData({...formData, categorie_permis: e.target.value})}>
-                    <option value="B">B (Voiture)</option>
-                    <option value="C">C (Poids Lourd)</option>
-                    <option value="D">D (Transport)</option>
-                </select>
+                <Input label="N° Permis de Conduire" placeholder="SN-XXXX" required value={formData.numero_permis} onChange={(e: any) => setFormData({...formData, numero_permis: e.target.value})} />
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                    <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Catégorie</label>
+                    <select 
+                        value={formData.categorie_permis} 
+                        onChange={e => setFormData({...formData, categorie_permis: e.target.value})}
+                        style={{ height: '42px' }}
+                    >
+                        <option value="B">B (Voiture)</option>
+                        <option value="C">C (Poids Lourd)</option>
+                        <option value="D">D (Transport)</option>
+                    </select>
+                </div>
             </div>
             <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '10px' }}>
-                <button type="button" className="btn-secondary" onClick={() => setIsModalOpen(false)}>Annuler</button>
-                <button type="submit" className="btn-primary">Embaucher</button>
+                <Button variant="ghost" onClick={() => setIsModalOpen(false)}>Annuler</Button>
+                <Button variant="primary" type="submit">Confirmer l'Embauche</Button>
             </div>
          </form>
       </Modal>
@@ -303,7 +333,10 @@ export default function DriversManagement({ search, setSearch }: any) {
 function Section({ title, children }: any) {
     return (
         <div>
-            <h3 style={{ fontSize: '11px', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.05em', marginBottom: '12px' }}>{title}</h3>
+            <h3 style={{ fontSize: '11px', fontWeight: 800, textTransform: 'uppercase', color: 'var(--text-muted)', letterSpacing: '0.1em', marginBottom: '16px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <div style={{ width: '4px', height: '14px', background: 'var(--primary)', borderRadius: '2px' }} />
+                {title}
+            </h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>{children}</div>
         </div>
     )
@@ -311,19 +344,26 @@ function Section({ title, children }: any) {
 
 function InfoRow({ icon, label, value }: any) {
     return (
-        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
-            <span style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '8px' }}>{icon} {label}</span>
-            <span style={{ fontWeight: 600 }}>{value}</span>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '14px', padding: '12px 16px', background: 'var(--bg-subtle)', borderRadius: '12px', border: '1px solid var(--border-subtle)' }}>
+            <span style={{ color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '10px', fontWeight: 600 }}>
+                <div style={{ color: 'var(--primary)', opacity: 0.8 }}>{icon}</div> 
+                {label}
+            </span>
+            <span style={{ fontWeight: 800, color: 'var(--text-main)' }}>{value}</span>
         </div>
     )
 }
 
-function StatBox({ label, value, icon }: any) {
+function StatBox({ label, value, icon, color }: any) {
     return (
-        <div style={{ background: 'var(--bg)', padding: '12px', borderRadius: '10px', textAlign: 'center' }}>
-            <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '4px' }}>{icon}</div>
-            <p style={{ fontSize: '16px', fontWeight: 700 }}>{value}</p>
-            <p style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase' }}>{label}</p>
-        </div>
+        <Card style={{ padding: '20px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
+            <div style={{ color: color, background: `${color}15`, width: '36px', height: '36px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {React.cloneElement(icon, { size: 18 })}
+            </div>
+            <div>
+                <p style={{ fontSize: '20px', fontWeight: 900, color: 'var(--text-main)', lineHeight: 1 }}>{value}</p>
+                <p style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800, marginTop: '4px', letterSpacing: '0.05em' }}>{label}</p>
+            </div>
+        </Card>
     )
 }

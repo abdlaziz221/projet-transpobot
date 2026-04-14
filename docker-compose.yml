@@ -1,26 +1,4 @@
 services:
-  # Base de données MySQL
-  db:
-    image: mysql:8.0
-    container_name: transpobot_db
-    restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${DB_NAME}
-      MYSQL_USER: ${DB_USER}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
-    ports:
-      - "3307:3306"
-    volumes:
-      - db_data:/var/lib/mysql
-      - ./sql/schema.sql:/docker-entrypoint-initdb.d/init.sql
-    networks:
-      - transpobot_network
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      timeout: 10s
-      retries: 5
-
   # Backend FastAPI
   backend:
     build:
@@ -28,9 +6,6 @@ services:
       dockerfile: Dockerfile
     container_name: transpobot_backend
     restart: always
-    depends_on:
-      db:
-        condition: service_healthy
     env_file: .env
     environment:
       DB_HOST: ${DB_HOST}
@@ -52,6 +27,8 @@ services:
     build:
       context: ./frontend_nextjs
       dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
     container_name: transpobot_frontend
     restart: always
     depends_on:
@@ -67,9 +44,6 @@ services:
       - /app/.next
     networks:
       - transpobot_network
-
-volumes:
-  db_data:
 
 networks:
   transpobot_network:

@@ -118,6 +118,7 @@ class MaintenanceBase(BaseModel):
     date_prevue: date
     date_realisee: Optional[date] = None
     cout: float
+    kilometrage: int
     effectuee: bool
 
 class Maintenance(MaintenanceBase):
@@ -130,6 +131,7 @@ class MaintenanceUpdate(BaseModel):
     date_prevue: Optional[date] = None
     date_realisee: Optional[date] = None
     cout: Optional[float] = None
+    kilometrage: Optional[int] = None
     effectuee: Optional[bool] = None
 
 # ─────────────────────────────────── AFFECTATIONS ───────────────────────────────────
@@ -161,6 +163,8 @@ class TarifBase(BaseModel):
     ligne_id: int
     type_client: str
     prix: float
+    date_debut: date
+    date_fin: date
 
 class Tarif(TarifBase):
     id: int

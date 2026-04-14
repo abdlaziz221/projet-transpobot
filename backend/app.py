@@ -24,22 +24,28 @@ from models import (
 )
 
 # Initialize Database Schema & Initial Data
-try:
-    Base.metadata.create_all(bind=engine)
-    
-    print("[OK] Connexion à la base de données établie.")
-    
-    # SEEDING INDUSTRIEL AUTOMATIQUE
+def init_db():
+    print("--- DÉMARRAGE DU SYSTÈME TRANSPOBOT ---")
     try:
-        from seeder import seed_all
-        seed_all()
-    except Exception as e:
-        print(f"[ERROR] Échec du seeding : {e}")
+        # 1. Création des tables
+        Base.metadata.create_all(bind=engine)
+        print("[OK] Schéma de base de données synchronisé.")
+        
+        # 2. Seeding automatique
+        try:
+            from seeder import seed_all
+            from database import SessionLocal
+            db = SessionLocal()
+            seed_all() # Le seeder a sa propre logique de vérification d'existence
+            db.close()
+            print("[OK] Données initiales vérifiées/insérées.")
+        except Exception as e:
+            print(f"[Avertissement] Le seeder a rencontré un souci mineur : {e}")
 
-    print("[OK] Système prêt (Infrastucture & Données métiers).")
-except Exception as err:
-    print(f"[ERROR] CRITICAL: Échec de l'initialisation système : {err}")
-    # On ne crash pas le container pour pouvoir livre les logs
+    except Exception as err:
+        print(f"[ERREUR CRITIQUE] Initialisation échouée : {err}")
+
+init_db()
 
 app = FastAPI(
     title="TranspoBot - Système de Gestion",
@@ -59,11 +65,18 @@ limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# Configuration CORS dynamique
-CORS_ORIGINS = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
+# Configuration CORS (Sécurisée pour support des cookies/credentials)
+ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost",
+    "http://127.0.0.1",
+    os.getenv("FRONTEND_URL", "http://localhost:3000")
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=CORS_ORIGINS,
+    allow_origins=ALLOWED_ORIGINS,
     allow_methods=["*"],
     allow_headers=["*"],
     allow_credentials=True,

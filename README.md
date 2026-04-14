@@ -1,81 +1,111 @@
-# TranspoBot - Système de Gestion de Transport Urbain
+# 🚌 TranspoBot Enterprise - Plateforme IA de Gestion de Flotte
 
-Projet de gestion de flotte et d'analyse de données pour une société de transport au Sénégal. Cette application permet de suivre les véhicules, chauffeurs et trajets, et intègre un assistant de requêtes en langage naturel.
+TranspoBot Enterprise est une plateforme corporative moderne alliant la puissance d'une base de données relationnelle à l'Intelligence Artificielle générative. Elle permet d'analyser en temps réel les performances, les finances, les incidents et l'aspect opérationnel de votre réseau de transport au Sénégal, le tout orchestré par un agent IA conversationnel.
 
-## 🛠️ Stack Technique
+![TranspoBot Banner](https://via.placeholder.com/1000x300.png?text=TRANSPOBOT+ENTERPRISE+AI+)
 
-*   **Frontend** : Next.js 14+ (App Router), React, TypeScript, Tailwind CSS, Lucide Icons, Chart.js.
-*   **Backend** : FastAPI (Python), SQLAlchemy, PyMySQL, Pydantic, HTTPX.
-*   **Base de Données** : MySQL (Relational DB) avec schémas normalisés.
-*   **IA & Chatbot** : Ollama (Modèle Llama 3 / Mistral local), traitement analytique par génération SQL dynamique.
-*   **Conteneurisation** : Docker, Docker Compose.
+## 🚀 Fonctionnalités Principales
 
-## 📦 Fonctionnalités Principales
+- **Chatbot Analytique (Two-Pass Architecture)** : 
+  - *Pass 1* : Génération dynamique de requêtes SQL complexes et optimisées depuis le langage naturel (Intention, Few-Shot Prompting).
+  - *Pass 2* : Synthétisation des résultats bruts en langage naturel strict, sans hallucinations, boosté par le GPU (VRAM Offloading).
+- **Auto-Guérison SQL (Self-Healing)** : L'algorithme détecte les erreurs MariaDB, interroge l'IA sur l'erreur rencontrée, corrige la requête et réessaie automatiquement de manière totalement transparente pour l'utilisateur.
+- **Cache IA Performant** : Mise en cache par hachage MD5 des requêtes répétitives pour une exécution en moins de 100 millisecondes.
+- **Détection des Intentions** : Analyse "Zero-Cost" des messages conversationnels (bonjour, merci, help) pour éviter les appels inutiles à la base de données.
+- **Dashboard Analytique en Temps Réel** : Indicateurs de flotte, suivi du taux d'occupation, et graphiques de recettes connectés sur FastAPI.
 
-1.  **Dashboard Global** : KPls en direct (Chiffre d'Affaires, Taux de Maintenance, Trajets Actifs). Graphiques interactifs d'analyse des incidents et de la flotte.
-2.  **Gestion des Véhicules** : Système CRUD, suivi kilométrique, filtrage complet du statut (Actif, Maintenance, Retiré).
-3.  **Suivi des Trajets** : Vue tabulaire sur les trajets avec dates, chauffeurs affectés, tarifs et passagers transportés.
-4.  **Gestion des Incidents** : Résolution des problèmes et rapports détaillés sur la sévérité des événements.
-5.  **Planification des Maintenances** : Gestion proactive des dates de révision et calcul financier des opérations.
-6.  **TranspoBot Chat IA** : Interface conversationnelle utilisant la mémoire tampon et interrogeant la flotte *via* l'exécution directe et sécurisée de requêtes SQL. Affichage modulaire transparent (Toggle SQL).
-
-## 🚀 Démarrage Rapide (Déploiement)
-
-Le moyen le plus simple de démarrer le projet en production est d'utiliser Docker, qui montera automatiquement la base SQL (via `sql/schema.sql` si disponible ou volume externe), le Backend Python et le Frontend Next.js.
-
-### 1️⃣ Via Docker / Docker Compose
-
-Assurez-vous que Docker Desktop / Engine est lancé sur votre machine :
-```bash
-docker-compose up -d --build
-```
-L'application sera alors accessible :
-- **Frontend** : http://localhost:3000
-- **Backend API Docs** : http://localhost:8000/docs
-- **MySQL** : Port 3306 
-
-### 2️⃣ Démarrage Manuel (Développement)
-
-Si vous n'utilisez pas Docker, vous pouvez lancer les instances séparément.
-
-**Backend :**
-```bash
-cd backend
-python -m venv venv
-venv\Scripts\activate
-pip install -r requirements.txt
-python app.py
-```
+## 🛠️ Stack Technologique
 
 **Frontend :**
-```bash
-cd frontend_nextjs
-npm install
-npm run dev
-```
+- **Next.js 14** (React) - Architecture App Router.
+- **Tailwind CSS** - Apparence "Premium", effets de flou (Glassmorphism), UI hyper fluide.
+- **Lucide React** - Iconographie professionnelle.
+- *Conteneurisé avec Docker.*
 
-## 🔒 Variables d'Environnement
+**Backend :**
+- **FastAPI** (Python) - Haute performance, typage strict.
+- **SQLAlchemy & PyMySQL** - ORM et connexion base de données robuste.
+- **Ollama API** - Intégration transparente pour des LLMs locaux (`qwen2.5:latest`).
+- *Conteneurisé avec Docker.*
 
-Un fichier `.env` est requis à la racine du Backend (déjà pré-fourni) :
+**Infrastructure / Base de données :**
+- **SGBD** : MySQL / MariaDB via **XAMPP local** (Hôte : `host.docker.internal`).
+- **Orchestration** : `docker-compose` liant FastAPI et Next.js de manière unifiée à XAMPP.
+
+## ⚙️ Prérequis
+
+1. **Docker Desktop** actif.
+2. **XAMPP** installé avec le module **MySQL / MariaDB démarré**.
+3. **Ollama** installé en local avec le modèle récupéré :
+   ```bash
+   ollama run qwen2.5:latest
+   ```
+
+## 🏗️ Installation & Lancement
+
+### 1. Configuration de la Base de Données (XAMPP)
+- Ouvrez le panneau XAMPP, démarrez **MySQL**.
+- Ouvrez `phpMyAdmin` (http://localhost/phpmyadmin).
+- Créez une nouvelle base de données nommée **`transpobot`**.
+- L'application créera automatiquement ses propres tables au démarrage, mais si besoin, vous pouvez injecter manuellement le fichier complet contenu dans `sql/schema1.sql`.
+
+### 2. Configuration de l'Environnement
+Dans le dossier `transpobot`, assurez-vous d'avoir le fichier `.env` configuré comme tel :
+
 ```env
-DB_USER=root
-DB_PASSWORD=admin
-DB_HOST=localhost
+# --- CONFIGURATION BASE DE DONNÉES (DB XAMPP) ---
 DB_NAME=transpobot
-LLM_BASE_URL=http://localhost:11434
-LLM_MODEL=mistral
-SECRET_KEY=votre_cle_de_chiffrement
+DB_USER=root
+DB_PASSWORD=
+DB_HOST=host.docker.internal
+
+# --- CONFIGURATION IA (OLLAMA) ---
+LLM_BASE_URL=http://host.docker.internal:11434
+LLM_MODEL=qwen2.5:latest
+
+# --- CONFIGURATION DE SÉCURITÉ ---
+SECRET_KEY=votre_cle_hyper_securisee_ici
+
+# --- CONFIGURATION FRONTEND ---
+NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
-Pour le frontend `frontend_nextjs/.env.local` :
-```env
-NEXT_PUBLIC_API_URL=http://localhost:8000/api
-```
+### 3. Exécution
 
-## 🤖 TranspoBot Chat (LLM Local)
-L'assistant conversationnel se connecte au moteur Ollama localisé sur le `port 11434`. Assurez-vous d'avoir téléchargé un modèle approprié (ex: `mistral`) :
+Ouvrez un terminal à la racine (où se trouve `docker-compose.yml`) et lancez :
+
 ```bash
-ollama run mistral
+docker-compose down
+docker-compose up -d --build
 ```
-Le Chatbot maintient un filet de sécurité (`Auto-Retry`), détecte le cycle historique par lots et formate automatiquement les données complexes (FCFA) demandées.
 
+### 4. Accès
+- **Tableau de Bord & App Client** : [http://localhost:3000](http://localhost:3000)
+- **Documentation API Backend** : [http://localhost:8000/docs](http://localhost:8000/docs)
+
+*Identifiants par défaut du portail (inclus par the Seeder) :*
+- Username : `admin_dakar` (ou autre défini par le seeder/Base)
+- Password : `passer` ou lié aux rôles de développement.
+
+## 📁 Structure du Projet
+
+```text
+transpobot/
+├── backend/                  # API Python FastAPI
+│   ├── routers/              # Logiques métier (ex: chat.py avec Passe 1 & Passe 2)
+│   ├── database.py           # Configuration SQLAlchemy XAMPP
+│   └── models.py             # Représentation SQL des 10 tables structurées
+├── frontend_nextjs/          # Application Web Réactive
+│   ├── app/                  # Routeur UI
+│   └── components/           # Composants graphiques (ChatIA.tsx, UI Premium)
+├── sql/                      # Dumps et scripts base de données (schema1.sql)
+├── docker-compose.yml        # Orchestrateur d'infrastruture Docker
+└── .env                      # Variables environnements
+```
+
+## 🔐 Sécurité
+
+Le backend protège l'application de toute modification des données via le chat : l'IA est cloitrée par blocage programmatique (`Rejet de tout ce qui n'est pas "SELECT"`), et limite du rate-limit (15 requêtes / minute par IP).
+
+---
+*Projet architectural conçu à des fins académiques/corporatives pour l'administration des transports publics.*

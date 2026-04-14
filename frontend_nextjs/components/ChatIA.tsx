@@ -1,37 +1,38 @@
-/* eslint-disable */
-'use client';
 import React, { useState, useRef, useEffect } from 'react';
 import { 
-  Send, 
-  Bot, 
-  User, 
-  Code, 
-  Database, 
-  Table as TableIcon, 
-  Sparkles,
-  FileSpreadsheet
+  Send, Bot, User, Code, Database, Table as TableIcon, 
+  Sparkles, FileSpreadsheet, Trash2, Plus, Terminal, Zap, Info, ArrowUp
 } from 'lucide-react';
 import { fetchWithAuth } from '../lib/api';
 import { exportToExcel } from '../lib/excelUtils';
+import { Button, Input, Badge } from './ui';
+import { useToast } from './ui/Toast';
 
+/**
+ * COMPOSANT CHAT IA - VERSION PLATINUM 
+ * Design inspiré par Claude.ai et Gemini
+ */
 export default function ChatIA() {
   const [messages, setMessages] = useState<any[]>([
     { 
         role: 'bot', 
-        text: "Bonjour ! Je suis l'assistant de gestion TranspoBot. Je peux vous aider à analyser vos données. Que souhaitez-vous savoir ?",
+        text: "Bonjour. Je suis TranspoBot, votre analyste stratégique. Je peux interroger directement la base MariaDB pour vous fournir des insights en temps réel sur votre flotte et vos revenus. Par quoi souhaitez-vous commencer ?",
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         showSql: false
     }
   ]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showSQLGlobal, setShowSQLGlobal] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const toast = useToast();
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
 
   useEffect(() => {
-    if (scrollRef.current) {
-        scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
+    scrollToBottom();
   }, [messages, loading]);
 
   async function handleSend(e: React.FormEvent) {
@@ -41,7 +42,7 @@ export default function ChatIA() {
     const userMsg = input.trim();
     const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     
-    // Garder le contexte (historique) : Max 10 messages pour ne pas surcharger
+    // Historique pour le backend
     const apiHistory = messages
       .filter(m => m.role === 'user' || m.role === 'bot')
       .slice(-10)
@@ -61,19 +62,23 @@ export default function ChatIA() {
         body: JSON.stringify({ question: userMsg, history: apiHistory })
       });
       const data = await res.json();
-      setMessages(prev => [...prev, { 
+      
+      const botMsg = { 
         role: 'bot', 
         text: data.answer, 
         sql: data.sql, 
         data: data.data,
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         showSql: false
-      }]);
+      };
+
+      setMessages(prev => [...prev, botMsg]);
     } catch (err) {
+       toast.error("Erreur de connexion", "L'assistant n'a pas pu répondre.");
        setMessages(prev => [...prev, { 
          role: 'bot', 
          error: true, 
-         text: "Désolé, je rencontre une difficulté technique pour accéder aux données.",
+         text: "Désolé, je rencontre une difficulté pour me connecter au cerveau de l'IA. Vérifiez que le service Ollama est actif.",
          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
        }]);
     } finally {
@@ -81,137 +86,159 @@ export default function ChatIA() {
     }
   }
 
-  const toggleLocalSQL = (idx: number) => {
-    setMessages(prev => prev.map((m, i) => i === idx ? { ...m, showSql: !m.showSql } : m));
+  const clearChat = () => {
+    if (confirm("Voulez-vous réinitialiser cette session d'analyse ?")) {
+        setMessages([messages[0]]);
+        toast.info("Session réinitialisée");
+    }
   };
 
   const suggestions = [
-    "Combien de trajets aujourd'hui ?",
-    "Quels véhicules sont en maintenance ?",
-    "Chauffeur avec le plus d'incidents ?",
-    "Recette totale cette semaine"
+    { label: "Recette par ligne", icon: <Zap size={14}/> },
+    { label: "Véhicules en maintenance", icon: <Terminal size={14}/> },
+    { label: "Chauffeurs performants", icon: <User size={14}/> }
   ];
 
   return (
-    <div className="animate-up" style={{ maxWidth: '1200px', margin: '0 auto' }}>
-      <div className="card" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 120px)', padding: 0, overflow: 'hidden' }}>
+    <div style={{ 
+        display: 'flex', flexDirection: 'column', height: '100vh', 
+        background: '#ffffff', color: '#1a1a1b', fontFamily: '"Inter", sans-serif',
+        overflow: 'hidden' 
+    }}>
         
-        {/* CHAT HEADER */}
-        <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'white' }}>
+        {/* HEADER TOP (FLOTTANT) */}
+        <header style={{ 
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center', 
+            padding: '16px 40px', borderBottom: '1px solid #f0f0f0', 
+            background: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(20px)', zIndex: 100 
+        }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: 'linear-gradient(135deg, var(--primary), #7c3aed)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
-                    <Bot size={22} />
+                <div style={{ width: '32px', height: '32px', background: '#000', borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+                    <Bot size={20} />
                 </div>
-                <div>
-                    <h3 style={{ fontSize: '15px', fontWeight: 700 }}>Assistant IA TranspoBot</h3>
-                    <p style={{ fontSize: '11px', color: 'var(--success)', fontWeight: 600 }}>● Système d'analyse en ligne</p>
-                </div>
+                <h2 style={{ fontSize: '18px', fontWeight: 600, letterSpacing: '-0.5px' }}>TranspoBot <span style={{ color: '#999', fontWeight: 400 }}>Analyst Edition</span></h2>
             </div>
-            <button 
-                onClick={() => setShowSQLGlobal(!showSQLGlobal)}
-                style={{ 
-                    display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', 
-                    borderRadius: '8px', border: '1px solid var(--border)', background: 'var(--bg)',
-                    fontSize: '12px', fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s'
-                }}
-                className={showSQLGlobal ? 'btn-primary' : ''}
-            >
-                <Code size={14} /> {showSQLGlobal ? 'Masquer tout le SQL' : 'Afficher tout le SQL'}
-            </button>
-        </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#666' }}>
+                    <span style={{ width: '8px', height: '8px', background: '#10b981', borderRadius: '50%' }}></span> MariaDB Online
+                </div>
+                <button onClick={clearChat} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#999' }}>
+                    <Trash2 size={18} />
+                </button>
+            </div>
+        </header>
 
-        {/* MESSAGES ZONE */}
-        <div 
-            ref={scrollRef}
-            style={{ flex: 1, padding: '24px', overflowY: 'auto', background: '#f8fafc', display: 'flex', flexDirection: 'column', gap: '20px' }}
-        >
-            {messages.map((m, i) => (
-                <div key={i} style={{ 
-                    display: 'flex', 
-                    flexDirection: 'column', 
-                    alignItems: m.role === 'user' ? 'flex-end' : 'flex-start',
-                    maxWidth: '85%',
-                    alignSelf: m.role === 'user' ? 'flex-end' : 'flex-start'
-                }}>
-                    <div style={{ display: 'flex', gap: '10px', flexDirection: m.role === 'user' ? 'row-reverse' : 'row', alignItems: 'flex-start' }}>
+        {/* ZONE DE LECTURE (CHANCELLERIE) */}
+        <main ref={scrollRef} style={{ flexGrow: 1, overflowY: 'auto', padding: '40px 0', scrollBehavior: 'smooth', width: '100%' }}>
+            <div style={{ maxWidth: '800px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '40px', padding: '0 20px' }}>
+                
+                {messages.map((m, i) => (
+                    <div key={i} style={{ 
+                        display: 'flex', gap: '16px', 
+                        flexDirection: m.role === 'user' ? 'row-reverse' : 'row',
+                        animation: 'fadeInUp 0.4s ease-out',
+                        alignItems: 'flex-start',
+                        width: '100%'
+                    }}>
+                        {/* AVATAR RÉDUIT */}
                         <div style={{ 
-                            width: '32px', height: '32px', borderRadius: '8px', flexShrink: 0,
-                            background: m.role === 'user' ? 'white' : 'linear-gradient(135deg, var(--primary), #7c3aed)',
-                            color: m.role === 'user' ? 'var(--text-muted)' : 'white',
+                            width: '28px', height: '28px', borderRadius: '8px', flexShrink: 0,
+                            background: m.role === 'user' ? '#f4f4f5' : '#111827',
                             display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            border: m.role === 'user' ? '1px solid var(--border)' : 'none',
-                            fontSize: '10px', fontWeight: 700
+                            color: m.role === 'user' ? '#111827' : 'white',
+                            marginTop: '6px'
                         }}>
-                           {m.role === 'user' ? <User size={16}/> : <Bot size={16}/>}
+                            {m.role === 'user' ? <User size={20}/> : <Sparkles size={18}/>}
                         </div>
-                        
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+
+                        {/* CONTENU */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%', minWidth: 0 }}>
+                            
+                            {/* TEXTE */}
                             <div style={{ 
-                                padding: '12px 16px', 
-                                borderRadius: m.role === 'user' ? '16px 4px 16px 16px' : '4px 16px 16px 16px',
-                                background: m.role === 'user' ? 'var(--primary)' : 'white',
-                                color: m.role === 'user' ? 'white' : 'var(--text-main)',
-                                boxShadow: '0 2px 4px rgba(0,0,0,0.03)',
-                                fontSize: '14px',
-                                lineHeight: '1.5'
+                                fontSize: '15.5px', 
+                                lineHeight: '1.7', 
+                                color: '#18181b', 
+                                fontWeight: 400,
+                                paddingLeft: '2px'
                             }}>
                                 {m.text}
                             </div>
-                            
-                            {m.role === 'bot' && m.sql && (
-                                <button 
-                                    onClick={() => toggleLocalSQL(i)}
-                                    style={{ 
-                                        background: 'transparent', border: 'none', color: 'var(--primary)', 
-                                        fontSize: '11px', display: 'flex', alignItems: 'center', gap: '4px',
-                                        cursor: 'pointer', fontWeight: 600, alignSelf: 'flex-start'
-                                    }}
-                                >
-                                    <Code size={12}/> {m.showSql || showSQLGlobal ? 'Masquer la requête SQL' : 'Voir la requête SQL'}
-                                </button>
-                            )}
 
+                            {/* EXTRAS (SQL & DATA) */}
                             {m.role === 'bot' && (m.sql || m.data) && (
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '4px' }}>
-                                    {(m.showSql || showSQLGlobal) && m.sql && (
-                                        <div style={{ 
-                                            background: '#0f172a', color: '#4ade80', padding: '12px', 
-                                            borderRadius: '8px', fontFamily: 'monospace', fontSize: '12px',
-                                            border: '1px solid #1e2937'
-                                        }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '8px', color: '#94a3b8', fontSize: '10px', textTransform: 'uppercase', fontWeight: 700 }}>
-                                                <Database size={12}/> Requête SQL Générée
-                                            </div>
-                                            {m.sql}
-                                        </div>
-                                    )}
-
+                                <div style={{ 
+                                    display: 'flex', 
+                                    flexDirection: 'column', 
+                                    gap: '24px', 
+                                    marginTop: '8px', 
+                                    width: '100%',
+                                    borderLeft: '2px solid #f4f4f5',
+                                    paddingLeft: '24px' 
+                                }}>
+                                    
+                                    {/* TABLEAU DE DONNEES */}
                                     {m.data && m.data.length > 0 && (
                                         <div style={{ 
-                                            background: 'white', border: '1px solid var(--border)', 
-                                            borderRadius: '8px', overflow: 'hidden', boxShadow: 'var(--shadow-sm)' 
+                                            overflow: 'hidden', 
+                                            border: '1px solid #e5e7eb', 
+                                            borderRadius: '12px', 
+                                            width: '100%',
+                                            background: 'white',
+                                            boxShadow: '0 2px 8px rgba(0,0,0,0.03)'
                                         }}>
-                                            <div style={{ padding: '8px 12px', background: '#f8fafc', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)' }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                                    <TableIcon size={14}/> Résultats ({m.data.length})
+                                            <div style={{ 
+                                                padding: '12px 16px', 
+                                                background: '#f9fafb', 
+                                                borderBottom: '1px solid #e5e7eb', 
+                                                display: 'flex', 
+                                                alignItems: 'center', 
+                                                justifyContent: 'space-between' 
+                                            }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '11px', fontWeight: 700, color: '#4b5563', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                                                    <TableIcon size={14} /> Extraction des données métiers
                                                 </div>
                                                 <button 
-                                                    onClick={() => exportToExcel(m.data, 'Export_Analyse_TranspoBot')}
-                                                    style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', fontSize: '10px' }}
+                                                    style={{ 
+                                                        background: '#ffffff', 
+                                                        border: '1px solid #e5e7eb', 
+                                                        color: '#4b5563', 
+                                                        cursor: 'pointer', 
+                                                        display: 'flex', 
+                                                        alignItems: 'center', 
+                                                        gap: '6px', 
+                                                        fontSize: '12px', 
+                                                        fontWeight: 600,
+                                                        padding: '6px 12px',
+                                                        borderRadius: '8px'
+                                                    }}
+                                                    onClick={() => exportToExcel(m.data, 'Export')}
                                                 >
-                                                    <FileSpreadsheet size={12}/> Exporter XLSX
+                                                    <FileSpreadsheet size={14}/> CSV
                                                 </button>
                                             </div>
-                                            <div style={{ overflowX: 'auto', maxHeight: '200px' }}>
-                                                <table style={{ fontSize: '12px', border: 'none' }}>
-                                                    <thead style={{ background: '#f8fafc' }}>
-                                                        <tr>{Object.keys(m.data[0]).map(k => <th key={k} style={{ padding: '8px 12px', textAlign: 'left' }}>{k}</th>)}</tr>
+                                            <div style={{ overflowX: 'auto', maxHeight: '400px' }}>
+                                                <table style={{ fontSize: '13px', borderCollapse: 'collapse', width: '100%', textAlign: 'left', minWidth: '400px' }}>
+                                                    <thead style={{ background: '#fdfdfd', position: 'sticky', top: 0, zIndex: 1 }}>
+                                                        <tr>{Object.keys(m.data[0]).map(k => (
+                                                            <th key={k} style={{ 
+                                                                padding: '12px 16px', 
+                                                                color: '#111827', 
+                                                                fontWeight: 600, 
+                                                                borderBottom: '2px solid #f3f4f6',
+                                                                fontSize: '12px'
+                                                            }}>{k}</th>
+                                                        ))}</tr>
                                                     </thead>
-                                                    <tbody style={{ background: 'white' }}>
+                                                    <tbody>
                                                         {m.data.map((row: any, idx: number) => (
-                                                            <tr key={`row-${idx}`} style={{ borderTop: '1px solid #f1f5f9' }}>
+                                                            <tr key={`row-${idx}`} style={{ transition: 'background 0.2s' }}>
                                                                 {Object.keys(row).map(k => (
-                                                                    <td key={`cell-${idx}-${k}`} style={{ padding: '8px 12px' }}>
+                                                                    <td key={`cell-${idx}-${k}`} style={{ 
+                                                                        padding: '12px 16px', 
+                                                                        color: '#4b5563', 
+                                                                        borderBottom: '1px solid #f3f4f6' 
+                                                                    }}>
                                                                         {String(row[k] ?? '')}
                                                                     </td>
                                                                 ))}
@@ -222,66 +249,145 @@ export default function ChatIA() {
                                             </div>
                                         </div>
                                     )}
+
+                                    {/* SQL BLOCK (TOUJOURS VISIBLE) */}
+                                    {m.sql && (
+                                        <div style={{ 
+                                            marginTop: '4px',
+                                            border: '1px solid #e5e7eb',
+                                            borderRadius: '8px',
+                                            overflow: 'hidden'
+                                        }}>
+                                            <div style={{ padding: '8px 12px', background: '#f9fafb', fontSize: '11px', fontWeight: 600, color: '#6b7280', display: 'flex', alignItems: 'center', gap: '6px', borderBottom: '1px solid #e5e7eb' }}>
+                                                <Code size={13}/> Requête MariaDB exécutée
+                                            </div>
+                                            <div style={{ 
+                                                padding: '12px', background: '#111827', color: '#e5e7eb', 
+                                                fontFamily: '"JetBrains Mono", monospace', fontSize: '12.5px',
+                                                overflowX: 'auto',
+                                                whiteSpace: 'pre-wrap'
+                                            }}>
+                                                {m.sql}
+                                            </div>
+                                        </div>
+                                    )}
+
                                 </div>
                             )}
-                            <span style={{ fontSize: '10px', color: 'var(--text-muted)', textAlign: m.role === 'user' ? 'right' : 'left' }}>{m.time}</span>
+
                         </div>
                     </div>
-                </div>
-            ))}
-            {loading && (
-                <div style={{ display: 'flex', gap: '10px' }}>
-                    <div style={{ width: '32px', height: '32px', borderRadius: '8px', background: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        <Sparkles size={16} className="animate-pulse" />
-                    </div>
-                    <div style={{ background: 'white', padding: '12px 16px', borderRadius: '4px 16px 16px 16px', fontSize: '13px', color: 'var(--text-muted)' }}>
-                        TranspoBot analyse votre demande...
-                    </div>
-                </div>
-            )}
-        </div>
+                ))}
 
-        {/* INPUT AREA */}
-        <div style={{ padding: '20px 24px', background: 'white', borderTop: '1px solid var(--border)' }}>
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', overflowX: 'auto', paddingBottom: '4px' }}>
-                {suggestions.map(s => (
-                    <button 
-                        key={s} 
-                        onClick={() => setInput(s)}
+                {/* LOADING SKELETON */}
+                {loading && (
+                    <div style={{ display: 'flex', gap: '24px' }}>
+                        <div style={{ width: '36px', height: '36px', borderRadius: '10px', background: '#fafafa', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Zap size={18} color="#e4e4e7" className="animate-pulse" />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
+                            <div style={{ height: '14px', width: '80%', background: '#f4f4f5', borderRadius: '4px' }}></div>
+                            <div style={{ height: '14px', width: '40%', background: '#f4f4f5', borderRadius: '4px' }}></div>
+                        </div>
+                    </div>
+                )}
+                
+                <div ref={messagesEndRef} />
+            </div>
+        </main>
+
+        {/* INPUT STICKY BAR (PARFAITEMENT SYMÉTRIQUE) */}
+        <div style={{ 
+            flexShrink: 0, 
+            padding: '24px 0 40px 0', 
+            background: 'white',
+            borderTop: '1px solid #f4f4f5',
+            zIndex: 100,
+            width: '100%'
+        }}>
+            <div style={{ maxWidth: '800px', margin: '0 auto', width: '100%', padding: '0 20px' }}>
+                
+                {/* SUGGESTIONS CHIPS */}
+                {!loading && messages.length < 3 && (
+                    <div style={{ display: 'flex', gap: '10px', marginBottom: '16px', overflowX: 'auto', paddingBottom: '4px', scrollbarWidth: 'none' }}>
+                        {suggestions.map((s, idx) => (
+                            <button 
+                                key={idx} 
+                                onClick={() => setInput(s.label)}
+                                style={{ 
+                                    padding: '8px 16px', borderRadius: '20px', border: '1px solid #e4e4e7', 
+                                    background: 'white', color: '#3f3f46', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '8px',
+                                    cursor: 'pointer', transition: 'all 0.2s', fontWeight: 500, whiteSpace: 'nowrap'
+                                }}
+                                onMouseOver={e => e.currentTarget.style.borderColor = '#000'}
+                                onMouseOut={e => e.currentTarget.style.borderColor = '#e4e4e7'}
+                            >
+                                {s.icon} {s.label}
+                            </button>
+                        ))}
+                    </div>
+                )}
+
+                {/* FORM */}
+                <form 
+                    onSubmit={handleSend}
+                    style={{ 
+                        position: 'relative', background: 'white', border: '1px solid #e4e4e7', 
+                        borderRadius: '16px', padding: '12px 16px', boxShadow: '0 4px 12px rgba(0, 0, 0, 0.05)',
+                        display: 'flex', alignItems: 'center', gap: '12px'
+                    }}
+                >
+                    <textarea 
+                        value={input}
+                        onChange={(e) => setInput(e.target.value)}
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                                e.preventDefault();
+                                handleSend(e);
+                            }
+                        }}
+                        placeholder="Posez une question à TranspoBot..."
+                        rows={1}
                         style={{ 
-                            whiteSpace: 'nowrap', padding: '6px 12px', borderRadius: '99px', 
-                            border: '1px solid var(--border)', background: 'white', 
-                            fontSize: '12px', color: 'var(--text-muted)', cursor: 'pointer',
+                            flexGrow: 1, border: 'none', background: 'none', outline: 'none',
+                            fontSize: '16px', resize: 'none', padding: '10px 0', fontFamily: 'inherit'
+                        }}
+                    />
+                    <button 
+                        disabled={!input.trim() || loading}
+                        style={{ 
+                            width: '40px', height: '40px', borderRadius: '10px', border: 'none',
+                            background: input.trim() ? '#111827' : '#f4f4f5', 
+                            color: input.trim() ? 'white' : '#a1a1aa',
+                            display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
                             transition: 'all 0.2s'
                         }}
-                        onMouseOver={(e:any) => { e.currentTarget.style.borderColor = 'var(--primary)'; e.currentTarget.style.color = 'var(--primary)'; }}
-                        onMouseOut={(e:any) => { e.currentTarget.style.borderColor = 'var(--border)'; e.currentTarget.style.color = 'var(--text-muted)'; }}
                     >
-                        {s}
+                        <ArrowUp size={20} />
                     </button>
-                ))}
+                </form>
+                <div style={{ textAlign: 'center', marginTop: '12px' }}>
+                    <p style={{ fontSize: '11px', color: '#a1a1aa', fontWeight: 500 }}>
+                        TranspoBot v2.0 • Analyse sémantique basée sur MariaDB • Sénégal
+                    </p>
+                </div>
             </div>
-            <form onSubmit={handleSend} style={{ display: 'flex', gap: '12px' }}>
-                <input 
-                    type="text" 
-                    value={input} 
-                    onChange={e => setInput(e.target.value)} 
-                    placeholder="Posez une question sur la flotte, les revenus ou les incidents..." 
-                    style={{ 
-                        flex: 1, padding: '12px 16px', borderRadius: '10px', 
-                        border: '1px solid var(--border)', background: '#f8fafc',
-                        outline: 'none', fontSize: '14px'
-                    }}
-                />
-                <button type="submit" className="btn-primary" style={{ height: '45px', width: '45px', padding: 0, borderRadius: '10px' }}>
-                    <Send size={18} />
-                </button>
-            </form>
-            <p style={{ textAlign: 'center', fontSize: '10px', color: 'var(--text-muted)', marginTop: '12px' }}>
-                L'IA générative peut faire des erreurs. Vérifiez les informations critiques.
-            </p>
         </div>
-      </div>
+
+        {/* CSS ANIMATIONS */}
+        <style dangerouslySetInnerHTML={{ __html: `
+            @keyframes fadeInUp {
+                from { opacity: 0; transform: translateY(10px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            .animate-pulse {
+                animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+            }
+            @keyframes pulse {
+                0%, 100% { opacity: 1; }
+                50% { opacity: .5; }
+            }
+        `}} />
     </div>
   );
 }
