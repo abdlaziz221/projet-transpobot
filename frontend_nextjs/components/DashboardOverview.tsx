@@ -208,8 +208,8 @@ export default function DashboardOverview({ setActivePage }: any) {
                 />
                 <KPICard
                     title="Recette Journalière"
-                    value={`${((stats?.recette_jour ?? 0) / 1000).toFixed(0)}k`}
-                    subtitle="FCFA"
+                    value={`${(stats?.recette_jour ?? 0).toLocaleString('fr-FR')} FCFA`}
+                    subtitle=""
                     icon={<Coins size={22} />}
                     color="var(--purple)"
                     sparkData={[45, 52, 48, 61, 55, 68, 72]}
@@ -294,7 +294,7 @@ export default function DashboardOverview({ setActivePage }: any) {
                                         {r.ligne} <span style={{ color: 'var(--text-muted)', fontWeight: 500, fontSize: '12px', marginLeft: '4px' }}>{r.nom.split('-')[1]?.trim() || r.nom}</span>
                                     </span>
                                     <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--primary)' }}>
-                                        {(r.recette_totale / 1000).toFixed(0)}k FCFA
+                                        {r.recette_totale.toLocaleString('fr-FR')} FCFA
                                     </span>
                                 </div>
                                 <div style={{ height: '6px', width: '100%', background: 'var(--bg-subtle)', borderRadius: '10px', overflow: 'hidden' }}>

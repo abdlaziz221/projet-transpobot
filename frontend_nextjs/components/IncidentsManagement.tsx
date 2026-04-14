@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
     AlertTriangle, ShieldAlert, CheckCircle2, Clock,
-    Plus, Check, Filter, Trash2, User, Activity, MoreHorizontal
+    Plus, Check, Filter, Trash2, User, Activity, MoreHorizontal, Wrench
 } from 'lucide-react';
 import { fetchWithAuth } from '../lib/api';
 import Modal from './Modal';
@@ -24,6 +24,7 @@ export default function IncidentsManagement({ search, setSearch }: any) {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [trajets, setTrajets] = useState<any[]>([]);
     const toast = useToast();
+    const [selectedIncidents, setSelectedIncidents] = useState<number[]>([]);
 
     const [formData, setFormData] = useState({
         trajet_id: 1,
@@ -69,6 +70,8 @@ export default function IncidentsManagement({ search, setSearch }: any) {
             toast.error("Erreur", "Impossible de charger les données d'incidents.");
         } finally {
             setLoading(false);
+            // Vider la sélection après rechargement
+            setSelectedIncidents([]);
         }
     }
 
@@ -93,6 +96,72 @@ export default function IncidentsManagement({ search, setSearch }: any) {
             toast.success('Résolu', 'Incident marqué comme traité.');
             loadData();
         } else toast.error('Erreur', 'Impossible de modifier le statut.');
+    }
+
+    async function sendToMaintenance(incident: any) {
+        // Créer une maintenance pour le véhicule impliqué
+        const maintenanceData = {
+            vehicule_id: incident.vehicule_id || 1, // À ajuster selon les données
+            type: 'Réparation suite incident',
+            description: `Maintenance suite à ${incident.type}: ${incident.description}`,
+            date_prevue: new Date().toISOString().split('T')[0],
+            cout: 0,
+            effectuee: false
+        };
+        const res = await fetchWithAuth('/maintenance', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(maintenanceData)
+        });
+        if (res.ok) {
+            toast.success('Maintenance créée', 'Le véhicule a été envoyé en maintenance.');
+            // Optionnellement marquer l'incident comme résolu
+            resolveIncident(incident.id);
+        } else toast.error('Erreur', 'Impossible de créer la maintenance.');
+    }
+
+    function toggleIncidentSelection(id: number) {
+        setSelectedIncidents(prev => 
+            prev.includes(id) 
+                ? prev.filter(i => i !== id) 
+                : [...prev, id]
+        );
+    }
+
+    function selectAllIncidents() {
+        const unresolvedIncidents = incidents.filter(i => !i.resolu).map(i => i.id);
+        setSelectedIncidents(unresolvedIncidents);
+    }
+
+    function deselectAllIncidents() {
+        setSelectedIncidents([]);
+    }
+
+    async function resolveSelectedIncidents() {
+        if (selectedIncidents.length === 0) {
+            toast.warning('Aucune sélection', 'Veuillez sélectionner au moins un incident.');
+            return;
+        }
+
+        const promises = selectedIncidents.map(id => 
+            fetchWithAuth(`/incidents_custom/${id}/resolve`, { method: 'PATCH' })
+        );
+
+        try {
+            const results = await Promise.all(promises);
+            const successCount = results.filter(r => r.ok).length;
+            
+            if (successCount === selectedIncidents.length) {
+                toast.success('Résolus', `${successCount} incident(s) marqué(s) comme traité(s).`);
+            } else {
+                toast.warning('Partiellement réussi', `${successCount}/${selectedIncidents.length} incident(s) résolu(s).`);
+            }
+            
+            setSelectedIncidents([]);
+            loadData();
+        } catch (err) {
+            toast.error('Erreur', 'Impossible de modifier les statuts.');
+        }
     }
 
     async function handleDelete(id: number) {
@@ -122,6 +191,21 @@ export default function IncidentsManagement({ search, setSearch }: any) {
     };
 
     const columns = [
+        {
+            key: 'select',
+            label: '',
+            style: { width: '40px', padding: '0 8px' },
+            render: (v: any, row: any) => (
+                !row.resolu && (
+                    <input
+                        type="checkbox"
+                        checked={selectedIncidents.includes(row.id)}
+                        onChange={() => toggleIncidentSelection(row.id)}
+                        style={{ cursor: 'pointer' }}
+                    />
+                )
+            )
+        },
         {
             key: 'type',
             label: 'Incident',
@@ -176,11 +260,16 @@ export default function IncidentsManagement({ search, setSearch }: any) {
             render: (v: any, row: any) => (
                 <div style={{ display: 'flex', gap: '4px', justifyContent: 'flex-end' }}>
                     {!row.resolu && (
-                        <Button variant="ghost" size="sm" onClick={() => resolveIncident(v)}>
-                            <Check size={16} color="var(--success)" />
-                        </Button>
+                        <>
+                            <Button variant="ghost" size="sm" onClick={() => resolveIncident(v)} title="Marquer comme résolu">
+                                <Check size={16} color="var(--success)" />
+                            </Button>
+                            <Button variant="ghost" size="sm" onClick={() => sendToMaintenance(row)} title="Envoyer en maintenance">
+                                <Wrench size={16} color="var(--warning)" />
+                            </Button>
+                        </>
                     )}
-                    <Button variant="ghost" size="sm" onClick={() => handleDelete(v)} style={{ color: 'var(--danger)' }}>
+                    <Button variant="ghost" size="sm" onClick={() => handleDelete(v)} style={{ color: 'var(--danger)' }} title="Supprimer">
                         <Trash2 size={16} />
                     </Button>
                 </div>
@@ -191,42 +280,83 @@ export default function IncidentsManagement({ search, setSearch }: any) {
     return (
         <div className="animate-up">
             {/* KPIs */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px', marginBottom: '24px' }}>
+            <div className="tablet-grid desktop-sm-grid" style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: '20px',
+              marginBottom: '24px'
+            }}>
                 <IncKPI label="Total Incidents" value={incidents.length} icon={<AlertTriangle />} color="var(--text-muted)" />
                 <IncKPI label="Niveau Critique" value={stats?.incidents_graves || 0} icon={<ShieldAlert />} color="var(--danger)" />
                 <IncKPI label="Dossiers Ouverts" value={stats?.incidents_ouverts || 0} icon={<Clock />} color="var(--warning)" />
                 <IncKPI label="Résolus / Archivés" value={incidents.filter(i => i.resolu).length} icon={<CheckCircle2 />} color="var(--success)" />
             </div>
 
-            <div className="split-view" style={{ gridTemplateColumns: '1fr 320px', gap: '24px' }}>
+            <div className="split-view" style={{
+              display: 'grid',
+              gridTemplateColumns: window?.innerWidth < 1024 ? '1fr' : '1fr 320px',
+              gap: '24px'
+            }}>
                 <Card padding="none">
                     <DataTable 
                         title="Journal des Événements"
                         subtitle="Historique des incidents et anomalies réseau"
                         columns={columns}
-                        data={incidents.filter(i => 
-                            (i.type?.toLowerCase() || '').includes(search.toLowerCase()) || 
-                            (i.description?.toLowerCase() || '').includes(search.toLowerCase()) ||
-                            (i.chauffeur?.toLowerCase() || '').includes(search.toLowerCase())
-                        )}
+                        data={incidents
+                            .filter(i => 
+                                (i.type?.toLowerCase() || '').includes(search.toLowerCase()) || 
+                                (i.description?.toLowerCase() || '').includes(search.toLowerCase()) ||
+                                (i.chauffeur?.toLowerCase() || '').includes(search.toLowerCase())
+                            )
+                            .sort((a, b) => {
+                                // Les incidents non résolus en premier, puis les résolus
+                                if (!a.resolu && b.resolu) return -1;
+                                if (a.resolu && !b.resolu) return 1;
+                                
+                                // Pour les incidents du même statut, trier par date décroissante (plus récent en premier)
+                                const dateA = new Date(a.date_incident || 0).getTime();
+                                const dateB = new Date(b.date_incident || 0).getTime();
+                                return dateB - dateA;
+                            })
+                        }
                         loading={loading}
                         onSearch={setSearch}
                         searchPlaceholder="Type, chauffeur..."
                         actions={
-                            <div style={{ display: 'flex', gap: '8px' }}>
-                                <select
-                                    value={severityFilter}
-                                    onChange={e => setSeverityFilter(e.target.value)}
-                                    style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '13px' }}
-                                >
-                                    <option value="All">Toutes gravités</option>
-                                    <option value="grave">Critique</option>
-                                    <option value="moyen">Moyen</option>
-                                    <option value="faible">Mineur</option>
-                                </select>
-                                <Button variant="primary" size="md" onClick={() => setIsModalOpen(true)}>
-                                    <Plus size={18} /> Rapporter
-                                </Button>
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                {/* Sélection multiple */}
+                                {selectedIncidents.length > 0 && (
+                                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                                        <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
+                                            {selectedIncidents.length} sélectionné(s)
+                                        </span>
+                                        <Button variant="success" size="sm" onClick={resolveSelectedIncidents}>
+                                            <Check size={14} /> Résoudre
+                                        </Button>
+                                        <Button variant="ghost" size="sm" onClick={deselectAllIncidents}>
+                                            Désélectionner
+                                        </Button>
+                                    </div>
+                                )}
+                                
+                                <div style={{ display: 'flex', gap: '4px' }}>
+                                    <Button variant="ghost" size="sm" onClick={selectAllIncidents}>
+                                        Tout sélectionner
+                                    </Button>
+                                    <select
+                                        value={severityFilter}
+                                        onChange={e => setSeverityFilter(e.target.value)}
+                                        style={{ padding: '8px 12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '13px' }}
+                                    >
+                                        <option value="All">Toutes gravités</option>
+                                        <option value="grave">Critique</option>
+                                        <option value="moyen">Moyen</option>
+                                        <option value="faible">Mineur</option>
+                                    </select>
+                                    <Button variant="primary" size="md" onClick={() => setIsModalOpen(true)}>
+                                        <Plus size={18} /> Rapporter
+                                    </Button>
+                                </div>
                             </div>
                         }
                     />

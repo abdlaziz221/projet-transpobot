@@ -1,0 +1,43 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(choco install:*)",
+      "Bash(winget --version)",
+      "Bash(winget install:*)",
+      "Bash(export PATH=\"/c/Program Files/nodejs:$PATH\")",
+      "Bash(npm --version)",
+      "Bash(npm install:*)",
+      "Bash(npm run:*)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8000/api)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8000)",
+      "Bash(curl -s http://localhost:8000/api/login)",
+      "Bash(netstat -ano)",
+      "Bash(tasklist)",
+      "Bash(docker stop:*)",
+      "Bash(docker rm:*)",
+      "Bash(taskkill /PID 29608 /F)",
+      "Bash(cmd.exe /c \"taskkill /PID 29608 /F\")",
+      "Bash(cmd.exe /c \"taskkill /PID 29608 /F 2>&1\")",
+      "Bash(kill -9 29608)",
+      "Bash(powershell.exe -Command \"Stop-Process -Id 29608 -Force\")",
+      "Bash(npx tsc:*)",
+      "Bash(node -e \"require\\('leaflet'\\); console.log\\('OK'\\)\")",
+      "Bash(cat lib/api.ts)",
+      "Bash(cat lib/api.tsx)",
+      "Bash(find . -name \"api*\" -path \"*/lib/*\")",
+      "Bash(curl -s -X POST \"http://localhost:8000/api/login\" -H \"Content-Type: application/x-www-form-urlencoded\" -d \"username=admin&password=passer\")",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('token:', d.get\\('access_token',''\\)[:40]+'...'\\)\")",
+      "Bash(powershell.exe -Command 'try { $r = Invoke-RestMethod -Uri '\\\\''http://localhost:8000/health'\\\\'' -TimeoutSec 3; $r | ConvertTo-Json } catch { '\\\\''Backend offline: '\\\\'' + $_.Exception.Message }')",
+      "Bash(powershell.exe -Command '$login = Invoke-RestMethod -Uri '\\\\''http://localhost:8000/api/login'\\\\'' -Method POST -Body '\\\\''username=admin&password=passer'\\\\'' -ContentType '\\\\''application/x-www-form-urlencoded'\\\\'' -TimeoutSec 5; $token = $login.access_token; $h = @{Authorization='\\\\''Bearer '\\\\''+$token}; $r = Invoke-RestMethod -Uri '\\\\''http://localhost:8000/api/trajets_custom?limit=3'\\\\'' -Headers $h -TimeoutSec 5; $r | ConvertTo-Json -Depth 4')",
+      "Bash(powershell.exe -Command '$login = Invoke-RestMethod -Uri '\\\\''http://localhost:8000/api/login'\\\\'' -Method POST -Body '\\\\''username=admin&password=passer'\\\\'' -ContentType '\\\\''application/x-www-form-urlencoded'\\\\'' -TimeoutSec 5; $token = $login.access_token; $h = @{Authorization='\\\\''Bearer '\\\\''+$token}; $r = Invoke-RestMethod -Uri '\\\\''http://localhost:8000/api/trajets_custom?limit=200'\\\\'' -Headers $h -TimeoutSec 10; $statuts = $r.data | Group-Object statut | Select-Object Name,Count; $statuts | ConvertTo-Json; Write-Host '\\\\''---VILLES---'\\\\''; $villes = $r.data | Select-Object -ExpandProperty origine | Sort-Object -Unique; $villes')",
+      "Bash(powershell.exe -Command ':*)",
+      "Bash(powershell.exe -Command \"Get-Process python* | Select-Object Id,ProcessName,CPU | Format-Table\")",
+      "Bash(powershell.exe -Command 'Get-Process python* | ForEach-Object { \\(Get-WmiObject Win32_Process -Filter \"ProcessId=$\\($_.Id\\)\"\\).CommandLine }')",
+      "Bash(powershell.exe -Command \"Get-Process uvicorn*,gunicorn* | Select-Object Id,ProcessName | Format-Table\")",
+      "Bash(powershell.exe -Command \"Get-Process -Id 29548 | Select-Object Id,ProcessName,Path; \\(Get-WmiObject Win32_Process -Filter 'ProcessId=29548'\\).CommandLine\")",
+      "Bash(docker cp:*)",
+      "Bash(docker restart:*)",
+      "Bash(docker logs:*)"
+    ]
+  }
+}

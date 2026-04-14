@@ -5,7 +5,7 @@ import { ThemeProvider } from "../context/ThemeContext";
 import { ToastProvider } from "../components/ui/Toast";
 
 export const metadata: Metadata = {
-  title: "TranspoBot Enterprise | Intelligence Logistique & Gestion de Flotte",
+  title: "TranspoBot Sénégal 🇸🇳 | Intelligence Logistique & Gestion de Flotte",
   description: "Solution d'intelligence logistique avancée pour la gestion de flottes urbaines, optimisée par IA.",
 };
 

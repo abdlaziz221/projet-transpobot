@@ -1,4 +1,4 @@
--- TranspoBot Enterprise - Structure de la Base de Données (UTF8MB4)
+-- TranspoBot Sénégal 🇸🇳 - Structure de la Base de Données (UTF8MB4)
 -- Ce fichier ne contient que la structure. Les données sont peuplées par le seeder Python.
 
 SET NAMES utf8mb4;

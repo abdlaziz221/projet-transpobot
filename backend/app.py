@@ -69,6 +69,8 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3001",
     "http://localhost",
     "http://127.0.0.1",
     os.getenv("FRONTEND_URL", "http://localhost:3000")
@@ -133,7 +135,7 @@ async def health_check():
     return {
         "status": "operational",
         "version": "3.0.0",
-        "service": "TranspoBot Enterprise API (Optimized)"
+        "service": "TranspoBot Sénégal 🇸🇳 API (Optimized)"
     }
 
 if __name__ == "__main__":
