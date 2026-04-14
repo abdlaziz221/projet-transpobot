@@ -1,56 +1,55 @@
 # 🚌 TranspoBot Enterprise - Plateforme IA de Gestion de Flotte
 
-TranspoBot Enterprise est une plateforme corporative moderne alliant la puissance d'une base de données relationnelle à l'Intelligence Artificielle générative. Elle permet d'analyser en temps réel les performances, les finances, les incidents et l'aspect opérationnel de votre réseau de transport au Sénégal, le tout orchestré par un agent IA conversationnel.
+TranspoBot Enterprise est une plateforme corporative alliant la puissance d'une base de données relationnelle (MySQL) à l'Intelligence Artificielle générative. Elle permet d'analyser en temps réel les performances, les finances et les incidents de votre réseau de transport, le tout orchestré par un agent IA conversationnel.
 
-![TranspoBot Banner](https://via.placeholder.com/1000x300.png?text=TRANSPOBOT+ENTERPRISE+AI+)
+---
 
-## 🚀 Fonctionnalités Principales
+## 🚀 Guide d'Installation (De zéro à la Production)
 
-- **Chatbot Analytique (Two-Pass Architecture)** : 
-  - *Pass 1* : Génération dynamique de requêtes SQL complexes et optimisées depuis le langage naturel (Intention, Few-Shot Prompting).
-  - *Pass 2* : Synthétisation des résultats bruts en langage naturel strict, sans hallucinations, boosté par le GPU (VRAM Offloading).
-- **Auto-Guérison SQL (Self-Healing)** : L'algorithme détecte les erreurs MariaDB, interroge l'IA sur l'erreur rencontrée, corrige la requête et réessaie automatiquement de manière totalement transparente pour l'utilisateur.
-- **Cache IA Performant** : Mise en cache par hachage MD5 des requêtes répétitives pour une exécution en moins de 100 millisecondes.
-- **Détection des Intentions** : Analyse "Zero-Cost" des messages conversationnels (bonjour, merci, help) pour éviter les appels inutiles à la base de données.
-- **Dashboard Analytique en Temps Réel** : Indicateurs de flotte, suivi du taux d'occupation, et graphiques de recettes connectés sur FastAPI.
+Ce guide est conçu pour vous permettre de lancer le projet complet juste après avoir cloné ce dépôt.
 
-## 🛠️ Stack Technologique
+### ÉTAPE 1 : Cloner le projet
 
-**Frontend :**
-- **Next.js 14** (React) - Architecture App Router.
-- **Tailwind CSS** - Apparence "Premium", effets de flou (Glassmorphism), UI hyper fluide.
-- **Lucide React** - Iconographie professionnelle.
-- *Conteneurisé avec Docker.*
+Si ce n'est pas déjà fait, clonez le dépôt sur votre machine locale :
+```bash
+git clone https://github.com/votre-nom/transpobot.git
+cd transpobot
+```
 
-**Backend :**
-- **FastAPI** (Python) - Haute performance, typage strict.
-- **SQLAlchemy & PyMySQL** - ORM et connexion base de données robuste.
-- **Ollama API** - Intégration transparente pour des LLMs locaux (`qwen2.5:latest`).
-- *Conteneurisé avec Docker.*
+### ÉTAPE 2 : Prérequis Système
 
-**Infrastructure / Base de données :**
-- **SGBD** : MySQL / MariaDB via **XAMPP local** (Hôte : `host.docker.internal`).
-- **Orchestration** : `docker-compose` liant FastAPI et Next.js de manière unifiée à XAMPP.
+Assurez-vous d'avoir installé les logiciels suivants sur votre machine :
+1. **[Docker Desktop](https://www.docker.com/products/docker-desktop/)** (doit être en cours d'exécution).
+2. **[XAMPP](https://www.apachefriends.org/fr/index.html)** (pour héberger la base de données MySQL localement).
+3. **[Ollama](https://ollama.com/)** (le moteur qui fera tourner l'IA localement).
 
-## ⚙️ Prérequis
+### ÉTAPE 3 : Configuration de l'Intelligence Artificielle (Ollama)
 
-1. **Docker Desktop** actif.
-2. **XAMPP** installé avec le module **MySQL / MariaDB démarré**.
-3. **Ollama** installé en local avec le modèle récupéré :
+Ollama permet de faire tourner le modèle de langage localement.
+1. Ouvrez un terminal (Invite de commandes ou PowerShell).
+2. Lancez la commande suivante pour télécharger et démarrer le modèle Qwen 2.5 (cela peut prendre quelques minutes selon votre connexion) :
    ```bash
    ollama run qwen2.5:latest
    ```
+3. Une fois l'installation terminée et le prompt `>>>` affiché, vous pouvez fermer ce terminal. Le service Ollama tourne en arrière-plan (sur le port `11434`).
 
-## 🏗️ Installation & Lancement
+### ÉTAPE 4 : Configuration de la Base de Données (XAMPP)
 
-### 1. Configuration de la Base de Données (XAMPP)
-- Ouvrez le panneau XAMPP, démarrez **MySQL**.
-- Ouvrez `phpMyAdmin` (http://localhost/phpmyadmin).
-- Créez une nouvelle base de données nommée **`transpobot`**.
-- L'application créera automatiquement ses propres tables au démarrage, mais si besoin, vous pouvez injecter manuellement le fichier complet contenu dans `sql/schema1.sql`.
+Le projet utilise votre base de données hôte (via XAMPP) pour des raisons de performance et de persistance pure.
 
-### 2. Configuration de l'Environnement
-Dans le dossier `transpobot`, assurez-vous d'avoir le fichier `.env` configuré comme tel :
+1. Lancez le **Panneau de configuration XAMPP**.
+2. Démarrez le module **Apache** et le module **MySQL**.
+3. Allez sur **phpMyAdmin** dans votre navigateur : [http://localhost/phpmyadmin](http://localhost/phpmyadmin)
+4. Cliquez sur **Nouvelle** dans le menu de gauche et créez une base de données nommée exactement : 
+   👉 `transpobot`
+   *(Note : Vous n'avez pas besoin d'importer de tables, l'application s'en chargera toute seule au premier démarrage).*
+
+### ÉTAPE 5 : Configuration des Variables d'Environnement
+
+Le projet a besoin d'un fichier `.env` pour faire le lien entre tout.
+
+1. À la racine du projet, faites une copie du fichier `.env.example` et renommez-la en **`.env`**.
+2. Ouvrez ce fichier **`.env`** et assurez-vous qu'il ressemble à ceci (normalement les paramètres par défaut sont déjà bons pour XAMPP) :
 
 ```env
 # --- CONFIGURATION BASE DE DONNÉES (DB XAMPP) ---
@@ -64,48 +63,43 @@ LLM_BASE_URL=http://host.docker.internal:11434
 LLM_MODEL=qwen2.5:latest
 
 # --- CONFIGURATION DE SÉCURITÉ ---
-SECRET_KEY=votre_cle_hyper_securisee_ici
+SECRET_KEY=cle_securisee_transpobot_2026
 
 # --- CONFIGURATION FRONTEND ---
 NEXT_PUBLIC_API_URL=http://localhost:8000
 ```
 
-### 3. Exécution
+### ÉTAPE 6 : Lancement des Conteneurs (Docker)
 
-Ouvrez un terminal à la racine (où se trouve `docker-compose.yml`) et lancez :
+Maintenant que l'IA et la base de données tournent sur votre machine, on va lancer le Backend (Python) et le Frontend (React/Next.js) dans Docker.
 
-```bash
-docker-compose down
-docker-compose up -d --build
-```
-
-### 4. Accès
-- **Tableau de Bord & App Client** : [http://localhost:3000](http://localhost:3000)
-- **Documentation API Backend** : [http://localhost:8000/docs](http://localhost:8000/docs)
-
-*Identifiants par défaut du portail (inclus par the Seeder) :*
-- Username : `admin_dakar` (ou autre défini par le seeder/Base)
-- Password : `passer` ou lié aux rôles de développement.
-
-## 📁 Structure du Projet
-
-```text
-transpobot/
-├── backend/                  # API Python FastAPI
-│   ├── routers/              # Logiques métier (ex: chat.py avec Passe 1 & Passe 2)
-│   ├── database.py           # Configuration SQLAlchemy XAMPP
-│   └── models.py             # Représentation SQL des 10 tables structurées
-├── frontend_nextjs/          # Application Web Réactive
-│   ├── app/                  # Routeur UI
-│   └── components/           # Composants graphiques (ChatIA.tsx, UI Premium)
-├── sql/                      # Dumps et scripts base de données (schema1.sql)
-├── docker-compose.yml        # Orchestrateur d'infrastruture Docker
-└── .env                      # Variables environnements
-```
-
-## 🔐 Sécurité
-
-Le backend protège l'application de toute modification des données via le chat : l'IA est cloitrée par blocage programmatique (`Rejet de tout ce qui n'est pas "SELECT"`), et limite du rate-limit (15 requêtes / minute par IP).
+1. Ouvrez un terminal à la racine du projet (là où se trouve le `docker-compose.yml`).
+2. Exécutez la commande de démarrage :
+   ```bash
+   docker-compose up -d --build
+   ```
+3. Docker va télécharger les dépendances (Python, Node) et monter les serveurs. Cela prendra 2 à 3 minutes la première fois.
 
 ---
-*Projet architectural conçu à des fins académiques/corporatives pour l'administration des transports publics.*
+
+## 🌐 Accès à l'Application
+
+Une fois Docker lancé, voici vos points d'entrée :
+
+- 📊 **Interface Utilisateur (Dashboard & Chatbot)** : [http://localhost:3000](http://localhost:3000)
+- ⚙️ **Documentation API (Swagger UI)** : [http://localhost:8000/docs](http://localhost:8000/docs)
+
+*Note : Lors du premier démarrage de Docker, le serveur a automatiquement créé les tables dans XAMPP et injecté les données de démonstration. Vous pouvez le vérifier en regardant votre phpMyAdmin !*
+
+## 💡 Astuces & Dépannage
+
+- **Le Chatbot répond "Connection refused"** ? Vérifiez que le logiciel Ollama est bien lancé sur votre machine en allant sur [http://localhost:11434](http://localhost:11434). Vous devriez voir "Ollama is running".
+- **Erreur MySQL "Access Denied"** ? Vérifiez dans XAMPP que votre utilisateur MySQL est bien `root` et qu'il n'a pas de mot de passe.
+- **Relancer proprement l'application** :
+  ```bash
+  docker-compose down
+  docker-compose up -d
+  ```
+
+---
+*TranspoBot Enterprise - Conçu pour l'optimisation des transports.*
