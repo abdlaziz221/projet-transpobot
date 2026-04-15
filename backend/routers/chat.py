@@ -87,10 +87,10 @@ Q:taux occupation lignes→{"sql":"SELECT l.nom,ROUND(AVG(t.nb_passagers*100.0/v
 # DÉTECTION D'INTENTION  (questions sans SQL nécessaire)
 # ─────────────────────────────────────────────
 CONVERSATIONAL_PATTERNS = {
-    "greeting": r"(bonjour|salut|bonsoir|hello|hi|salam|bonne\s*(matin|après|soir)|good\s*(morning|evening|afternoon))",
-    "thanks":   r"(merci|thank|bravo|super|parfait|excellent|nickel|c('|')est\s*(bon|bien|super|ok)|d'accord|ok\s*$|bien\s*reçu)",
-    "help":     r"(aide|help|que\s*peux.tu|fonctionnalité|qu('|')est.ce\s*que\s*tu|comment.*utiliser|que.*faire|menu)",
-    "identity": r"(qui\s*(es|êtes).*(tu|vous)|présente.toi|c('|')est\s*quoi|tu\s*(es|fais|sais)|transpobot|assistant|bot)",
+    "greeting": r"(bonjour|salut|bonsoir|\bhello\b|\bhi\b|\bsalam\b|bonne\s*(matin|après|soir)|good\s*(morning|evening|afternoon))",
+    "thanks":   r"(merci|thank|bravo|parfait|excellent|nickel|c('|')est\s*(bon|bien|super|ok)|d'accord|\bok\s*$|bien\s*reçu)",
+    "help":     r"(\baide\b|\bhelp\b|que\s*peux.tu|fonctionnalité|qu('|')est.ce\s*que\s*tu|comment.*utiliser|que.*faire|\bmenu\b)",
+    "identity": r"(qui\s*(es|êtes).*(tu|vous)|présente.toi|c('|')est\s*quoi|tu\s*(es|fais|sais)|\btranspobot\b|\bassistant\b|\bbot\b)",
 }
 
 CONVERSATIONAL_RESPONSES = {
@@ -123,13 +123,22 @@ CONVERSATIONAL_RESPONSES = {
     ),
 }
 
+def _normalize(text: str) -> str:
+    """Normalise les accents pour la comparaison : é→e, è→e, ê→e, à→a, etc."""
+    replacements = str.maketrans("éèêëàâùûüîïôçœæ", "eeeeeauuuiiocoe")
+    return text.translate(replacements)
+
 def detect_conversational_intent(question: str) -> str | None:
     """Détecte les intentions conversationnelles — fonctionne avec ou sans historique."""
     q = question.strip().lower()
-    # Question très courte (≤ 20 chars) et aucun mot-clé métier → probablement conversationnel
-    has_business = re.search(r"(trajet|chauffeur|v[eé]hicule|incident|maintenance|ligne|recette|tarif|passager|km|planning)", q)
+    qn = _normalize(q)  # version sans accents pour les comparaisons
+    # Mots-clés métier (avec et sans accents)
+    has_business = re.search(
+        r"(trajet|chauffeur|v[eé]hicule|incident|maintenance|ligne|recette|tarif|passager|km|planning|vehicule)",
+        qn
+    )
     for intent, pattern in CONVERSATIONAL_PATTERNS.items():
-        if re.search(pattern, q):
+        if re.search(pattern, q) or re.search(pattern, qn):
             return intent
     # Fallback : question très courte sans mot métier → greeting
     if len(q) <= 15 and not has_business:
@@ -449,7 +458,7 @@ _SHORTCUTS = [
 
 def try_shortcut(question: str) -> dict | None:
     """Retourne {sql, answer, intent} si la question correspond à un raccourci, sinon None."""
-    q = question.lower()
+    q = _normalize(question.lower())  # normalise les accents avant matching
     for pattern, sql, answer, intent in _SHORTCUTS:
         if re.search(pattern, q):
             return {"sql": sql, "answer": answer, "intent": intent}
@@ -464,7 +473,7 @@ def smart_fallback(question: str) -> dict | None:
     Génère du SQL sans LLM en détectant l'entité principale et l'intention.
     Appelé quand aucun raccourci exact ne correspond.
     """
-    q = question.lower()
+    q = _normalize(question.lower())  # normalise les accents
 
     # ── Entité principale ──────────────────────────────────────────────────
     entity = None
