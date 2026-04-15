@@ -110,7 +110,7 @@ def get_vehicule_detail(id: int, db: Session = Depends(get_db)):
             "trajets_total": stats_result.nb_trajets or 0,
             "recette_totale": float(stats_result.recette_totale or 0),
             "nb_passagers": int(stats_result.nb_passagers or 0),
-            "moy_passagers": round(float(stats_result.moy_passagers or 0), 1)
+            "moy_passagers": round(float(stats_result.moy_passagers or 0))
         }
     }
 
