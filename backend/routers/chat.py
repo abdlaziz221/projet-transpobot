@@ -774,74 +774,191 @@ async def auto_fix_sql(original_sql: str, error_msg: str, question: str) -> str 
 
 
 # ─────────────────────────────────────────────
-# SYNTHÈSE SANS LLM  (remplace le 2ème appel LLM — x2 plus rapide)
+# SYNTHÈSE LANGAGE NATUREL  (réponses en français conversationnel)
 # ─────────────────────────────────────────────
+
+# Mapping valeurs booléennes/enum → libellés français
+_BOOL_LABELS = {
+    "disponibilite": {1: "disponible", 0: "indisponible", True: "disponible", False: "indisponible"},
+    "resolu":        {1: "résolu",     0: "non résolu",   True: "résolu",     False: "non résolu"},
+    "effectuee":     {1: "effectuée",  0: "en attente",   True: "effectuée",  False: "en attente"},
+}
+_ENUM_LABELS = {
+    "statut": {
+        "actif": "actif", "inactif": "inactif", "maintenance": "en maintenance",
+        "termine": "terminé", "en_cours": "en cours", "annule": "annulé",
+        "planifie": "planifié", "effectue": "effectué", "programme": "programmé",
+    },
+    "gravite":      {"grave": "grave", "moyen": "moyen", "faible": "faible"},
+    "type_client":  {"normal": "normal", "etudiant": "étudiant"},
+}
+
+def _humanize_cat(col: str, val) -> str:
+    """Convertit une valeur de catégorie en libellé lisible."""
+    col_l = col.lower()
+    if col_l in _BOOL_LABELS:
+        return _BOOL_LABELS[col_l].get(val, str(val))
+    if col_l in _ENUM_LABELS:
+        return _ENUM_LABELS[col_l].get(str(val), str(val))
+    return str(val)
+
 def _fmt_val(key: str, val) -> str:
     """Formate une valeur avec son unité contextuelle."""
     if val is None:
         return "—"
     k = key.lower()
     if isinstance(val, float):
-        if any(x in k for x in ("recette", "cout", "prix", "revenu", "montant")):
+        if any(x in k for x in ("recette", "cout", "prix", "revenu", "montant", "total", "cumul")):
             return f"{val:,.0f} FCFA"
+        if any(x in k for x in ("taux", "pct", "pourcent")):
+            return f"{val:.1f} %"
         return f"{val:,.1f}"
     if isinstance(val, int):
+        if any(x in k for x in ("recette", "cout", "prix", "revenu", "montant")):
+            return f"{val:,} FCFA"
         if any(x in k for x in ("trajet", "voyage")):   return f"{val} trajet{'s' if val > 1 else ''}"
         if any(x in k for x in ("incident",)):           return f"{val} incident{'s' if val > 1 else ''}"
         if any(x in k for x in ("passager",)):           return f"{val} passager{'s' if val > 1 else ''}"
         if any(x in k for x in ("km", "kilom")):         return f"{val:,} km"
         if any(x in k for x in ("jour",)):               return f"{val} jour{'s' if val > 1 else ''}"
-        return str(val)
+        if any(x in k for x in ("maintenance",)):        return f"{val} maintenance{'s' if val > 1 else ''}"
+        if any(x in k for x in ("ligne",)):              return f"{val} ligne{'s' if val > 1 else ''}"
+        if any(x in k for x in ("chauffeur",)):          return f"{val} chauffeur{'s' if val > 1 else ''}"
+        if any(x in k for x in ("vehicule", "véhicule")): return f"{val} véhicule{'s' if val > 1 else ''}"
+        return f"{val:,}"
     return str(val)
 
 
 def synthesize_answer_fast(label: str, data: list, intent: str) -> str:
-    """
-    Génère une réponse textuelle précise basée sur les vraies données.
-    """
+    """Génère une réponse en français naturel à partir des données SQL."""
     if not data:
-        return "Aucun résultat trouvé dans la base de données."
+        return "Aucun résultat trouvé dans la base de données pour cette requête."
 
     n    = len(data)
     cols = list(data[0].keys())
     row0 = data[0]
-
-    # Colonnes à ignorer dans l'affichage (booléens, IDs techniques)
+    _bool_keys = {"resolu", "disponibilite", "effectuee"}
     _skip = {"id", "resolu", "disponibilite", "effectuee"}
 
-    # ── 1. Valeur unique (COUNT, SUM…) ─────────────────────────────────────
-    if n == 1 and len(cols) <= 3:
-        num_vals = {k: v for k, v in row0.items() if isinstance(v, (int, float))}
-        if num_vals:
-            parts = [f"**{_fmt_val(k, v)}**" for k, v in num_vals.items()]
-            return f"{label} {', '.join(parts)}"
+    # ── 1. Valeur(s) unique(s) : COUNT / SUM / résultat chiffré ───────────
+    if n == 1:
+        # Cas tableau de bord multi-KPI
+        _kpi_labels = {
+            "vehicules_actifs":       "🚌 véhicules actifs",
+            "total_vehicules":        "véhicules au total",
+            "chauffeurs_disponibles": "👤 chauffeurs disponibles",
+            "chauffeurs_dispo":       "👤 chauffeurs disponibles",
+            "incidents_ouverts":      "⚠️ incidents ouverts",
+            "incidents_graves":       "dont graves",
+            "recette_jour":           "💰 recette du jour",
+            "trajets_aujourd_hui":    "🛣️ trajets aujourd'hui",
+            "maintenances_en_attente":"🔧 maintenances en attente",
+        }
+        if any(k in _kpi_labels for k in row0):
+            parts = []
+            for k, v in row0.items():
+                if v is not None:
+                    nice = _kpi_labels.get(k, k.replace("_", " "))
+                    parts.append(f"**{_fmt_val(k, v)}** {nice}")
+            return f"{label}\n" + " · ".join(parts)
 
-    # ── 2. Classement (1ère colonne = texte, reste = numériques signifiants) ──
-    first_col  = cols[0]
-    _bool_keys = {"resolu", "disponibilite", "effectuee"}
+        # Cas 1 résultat avec colonnes numériques seulement → phrase naturelle
+        num_items = [(k, v) for k, v in row0.items()
+                     if isinstance(v, (int, float)) and k.lower() not in _bool_keys]
+        text_items = [(k, v) for k, v in row0.items() if isinstance(v, str) and v]
+
+        if len(cols) <= 3 and num_items and not text_items:
+            # Ex: {total: 6} ou {chauffeurs_disponibles: 4, chauffeurs_indisponibles: 2}
+            sentences = []
+            for k, v in num_items:
+                kl = k.lower()
+                fv = _fmt_val(k, v)
+                if any(x in kl for x in ("total", "nb", "nombre", "count", "chauffeur")):
+                    sentences.append(f"Il y a **{fv}** au total.")
+                elif any(x in kl for x in ("recette", "revenu", "chiffre")):
+                    sentences.append(f"La recette s'élève à **{fv}**.")
+                elif any(x in kl for x in ("cout", "budget", "depense")):
+                    sentences.append(f"Le coût total est de **{fv}**.")
+                elif any(x in kl for x in ("taux", "pct", "pourcent")):
+                    sentences.append(f"Le taux est de **{fv}**.")
+                elif any(x in kl for x in ("moy", "moyen", "average")):
+                    sentences.append(f"La moyenne est de **{fv}**.")
+                else:
+                    sentences.append(f"**{fv}** {k.replace('_', ' ')}")
+            return f"{label}\n" + " ".join(sentences) if sentences else f"{label} **{_fmt_val(num_items[0][0], num_items[0][1])}**"
+
+        # 1 résultat avec texte + chiffres (ex: recette d'une ligne spécifique)
+        if text_items and num_items:
+            intro = ", ".join(f"**{v}**" for _, v in text_items[:2])
+            details = " — ".join(_fmt_val(k, v) for k, v in num_items[:4])
+            return f"{label}\n{intro} : {details}"
+
+    # ── 2. Distribution (GROUP BY boolean/enum : catégorie + nb) ───────────
+    cat_col = cols[0]
+    cnt_col = cols[1] if len(cols) >= 2 else None
+
+    is_distribution = (
+        n <= 8
+        and len(cols) == 2
+        and cnt_col
+        and all(isinstance(row.get(cnt_col), (int, float)) for row in data)
+        and (cat_col.lower() in _bool_keys
+             or cat_col.lower() in _ENUM_LABELS
+             or cat_col.lower() in {"statut", "gravite", "type", "type_client"})
+    )
+
+    if is_distribution:
+        total = sum(row[cnt_col] for row in data)
+        parts = []
+        for row in data:
+            cat_label = _humanize_cat(cat_col, row[cat_col])
+            cnt = row[cnt_col]
+            parts.append(f"**{cnt}** {cat_label}{'s' if cnt > 1 and not cat_label.endswith('s') else ''}")
+        total_word = "au total"
+        entity = "éléments"
+        ll = label.lower()
+        if "chauffeur" in ll:  entity = "chauffeurs"
+        elif "véhicule" in ll or "vehicule" in ll: entity = "véhicules"
+        elif "incident" in ll: entity = "incidents"
+        elif "trajet" in ll:   entity = "trajets"
+        elif "maintenance" in ll: entity = "maintenances"
+
+        if len(parts) == 1:
+            return f"{label}\nIl y a **{total} {entity}** {total_word} : {parts[0]}."
+        elif len(parts) == 2:
+            return f"{label}\nIl y a **{total} {entity}** {total_word} : {parts[0]} et {parts[1]}."
+        else:
+            last = parts[-1]
+            rest = ", ".join(parts[:-1])
+            return f"{label}\nIl y a **{total} {entity}** {total_word} : {rest} et {last}."
+
+    # ── 3. Classement (1ère colonne texte, reste numériques signifiants) ────
+    first_col = cols[0]
     num_cols = [
         c for c in cols[1:]
         if isinstance(row0.get(c), (int, float))
         and c.lower() not in _bool_keys
         and max((row.get(c, 0) or 0) for row in data) > 1
     ]
-    is_ranking = isinstance(row0.get(first_col), str) and bool(num_cols)
+    is_ranking = isinstance(row0.get(first_col), str) and bool(num_cols) and n > 1
 
-    if is_ranking and n > 1:
+    if is_ranking:
         sort_col = num_cols[0]
-        if any("recette" in c for c in num_cols):    sort_col = next(c for c in num_cols if "recette" in c)
-        elif any("trajet" in c for c in num_cols):   sort_col = next(c for c in num_cols if "trajet" in c)
-        elif any("incident" in c for c in num_cols): sort_col = next(c for c in num_cols if "incident" in c)
+        if any("recette" in c for c in num_cols):     sort_col = next(c for c in num_cols if "recette" in c)
+        elif any("trajet" in c for c in num_cols):    sort_col = next(c for c in num_cols if "trajet" in c)
+        elif any("incident" in c for c in num_cols):  sort_col = next(c for c in num_cols if "incident" in c)
+        elif any("passager" in c for c in num_cols):  sort_col = next(c for c in num_cols if "passager" in c)
 
         critere = {
-            **{c: "nombre de trajets" for c in num_cols if "trajet" in c},
-            **{c: "recettes générées" for c in num_cols if "recette" in c},
-            **{c: "incidents" for c in num_cols if "incident" in c},
-            **{c: "kilométrage" for c in num_cols if "km" in c or "kilom" in c},
+            **{c: "nombre de trajets"  for c in num_cols if "trajet"   in c},
+            **{c: "recettes générées"  for c in num_cols if "recette"  in c},
+            **{c: "incidents"          for c in num_cols if "incident" in c},
+            **{c: "passagers"          for c in num_cols if "passager" in c},
+            **{c: "kilométrage"        for c in num_cols if "km" in c or "kilom" in c},
         }.get(sort_col, sort_col.replace("_", " "))
 
         medals = ["🥇", "🥈", "🥉"] + [f"{i+1}." for i in range(3, 10)]
-        lines  = [f"{label} classement par **{critere}** ({n} résultat{'s' if n > 1 else ''}) :"]
+        lines = [f"{label} classement par **{critere}** ({n} résultat{'s' if n > 1 else ''}) :"]
         for i, row in enumerate(data[:10]):
             name    = str(row[first_col])
             details = " · ".join(_fmt_val(c, row[c]) for c in num_cols if row.get(c) is not None)
@@ -850,61 +967,42 @@ def synthesize_answer_fast(label: str, data: list, intent: str) -> str:
             lines.append(f"_... {n - 10} autres dans le tableau._")
         return "\n".join(lines)
 
-    # ── 3. Distribution (2 colonnes : catégorie + count) ───────────────────
-    if len(cols) == 2 and n <= 8:
-        total = sum(row[cols[1]] for row in data if isinstance(row.get(cols[1]), (int, float)))
-        if total > 0:
-            parts = []
-            for row in data:
-                k = str(row[cols[0]])
-                v = row[cols[1]]
-                if isinstance(v, (int, float)):
-                    pct = round(v / total * 100)
-                    parts.append(f"**{k}** : {_fmt_val(cols[1], v)} ({pct} %)")
-            if parts:
-                return f"{label}\n" + "\n".join(f"• {p}" for p in parts)
-
-    # ── 4. Résultat unique avec plusieurs colonnes (ex: tableau de bord) ────
+    # ── 4. Résultat unique avec plusieurs colonnes (ex: stats tableau de bord)
     if n == 1:
-        _labels = {
-            "vehicules_actifs": "🚌 véhicules actifs",
-            "total_vehicules": "/ total",
-            "chauffeurs_disponibles": "👤 chauffeurs disponibles",
-            "chauffeurs_dispo": "👤 chauffeurs disponibles",
-            "incidents_ouverts": "⚠️ incidents ouverts",
-            "incidents_graves": "dont graves",
-            "recette_jour": "💰 recette du jour",
-            "trajets_aujourd_hui": "🛣️ trajets aujourd'hui",
-            "maintenances_en_attente": "🔧 maintenances en attente",
-        }
         parts = []
         for k, v in row0.items():
-            if v is not None:
-                nice = _labels.get(k, k.replace("_", " "))
-                parts.append(f"**{_fmt_val(k, v)}** {nice}")
+            if v is not None and k.lower() not in {"id"}:
+                if k.lower() in _bool_keys:
+                    parts.append(f"**{_humanize_cat(k, v)}**")
+                else:
+                    parts.append(f"**{_fmt_val(k, v)}** {k.replace('_', ' ')}")
         return f"{label}\n" + " · ".join(parts)
 
-    # ── 5. Liste générale : énumère les items avec leurs détails ───────────
-    entity_hint = label.lower()
-    if   "chauffeur" in entity_hint: noun = "chauffeur" + ("s" if n > 1 else "")
-    elif "véhicule"  in entity_hint or "vehicule" in entity_hint: noun = "véhicule" + ("s" if n > 1 else "")
-    elif "incident"  in entity_hint: noun = "incident" + ("s" if n > 1 else "")
-    elif "trajet"    in entity_hint: noun = "trajet" + ("s" if n > 1 else "")
-    elif "ligne"     in entity_hint: noun = "ligne" + ("s" if n > 1 else "")
-    elif "maintenance" in entity_hint: noun = "maintenance" + ("s" if n > 1 else "")
-    elif "tarif"     in entity_hint: noun = "tarif" + ("s" if n > 1 else "")
-    else: noun = "résultat" + ("s" if n > 1 else "")
+    # ── 5. Liste générale ──────────────────────────────────────────────────
+    ll = label.lower()
+    if   "chauffeur"    in ll: noun = "chauffeur" + ("s" if n > 1 else "")
+    elif "véhicule"     in ll or "vehicule" in ll: noun = "véhicule" + ("s" if n > 1 else "")
+    elif "incident"     in ll: noun = "incident" + ("s" if n > 1 else "")
+    elif "trajet"       in ll: noun = "trajet" + ("s" if n > 1 else "")
+    elif "ligne"        in ll: noun = "ligne" + ("s" if n > 1 else "")
+    elif "maintenance"  in ll: noun = "maintenance" + ("s" if n > 1 else "")
+    elif "tarif"        in ll: noun = "tarif" + ("s" if n > 1 else "")
+    elif "recette"      in ll: noun = "entrée" + ("s" if n > 1 else "")
+    else:                       noun = "résultat" + ("s" if n > 1 else "")
 
-    # Colonnes utiles à afficher (max 5, sans les techniques)
     display_cols = [c for c in cols if c.lower() not in _skip][:5]
-
     lines = [f"{label} **{n} {noun}** :"]
     for row in data[:12]:
         parts = []
         for c in display_cols:
             v = row.get(c)
-            if v is not None and str(v).strip() and str(v) != "None":
-                parts.append(_fmt_val(c, v))
+            if v is not None and str(v).strip() and str(v) not in ("None", ""):
+                if c.lower() in _bool_keys:
+                    parts.append(_humanize_cat(c, v))
+                elif c.lower() in _ENUM_LABELS:
+                    parts.append(_humanize_cat(c, v))
+                else:
+                    parts.append(_fmt_val(c, v))
         if parts:
             lines.append("• " + " — ".join(parts))
     if n > 12:
