@@ -1,19 +1,20 @@
-FROM python:3.10-slim
+FROM python:3.12-slim
 
 WORKDIR /app
 
-# Dépendances système pour MySQL et compilation
+# Dépendances système
 RUN apt-get update && apt-get install -y \
     pkg-config \
     default-libmysqlclient-dev \
     build-essential \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
 
 # Installation des dépendances Python
 RUN pip install --no-cache-dir -r requirements.txt
-RUN pip install gunicorn uvicorn cryptography
+RUN pip install gunicorn
 
 COPY . .
 
