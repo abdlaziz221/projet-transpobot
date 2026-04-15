@@ -981,7 +981,8 @@ def synthesize_answer_fast(label: str, data: list, intent: str) -> str:
                 if v is not None:
                     nice = _kpi_labels.get(k, k.replace("_", " "))
                     parts.append(f"**{_fmt_val(k, v)}** {nice}")
-            return f"{label}\n" + " · ".join(parts)
+            intro = "Voici un résumé du tableau de bord :"
+            return f"{intro}\n" + " · ".join(parts)
 
         # Cas 1 résultat avec colonnes numériques seulement → phrase naturelle
         num_items = [(k, v) for k, v in row0.items()
@@ -994,8 +995,16 @@ def synthesize_answer_fast(label: str, data: list, intent: str) -> str:
             for k, v in num_items:
                 kl = k.lower()
                 fv = _fmt_val(k, v)
-                if any(x in kl for x in ("total", "nb", "nombre", "count", "chauffeur")):
+                if any(x in kl for x in ("total", "nb", "nombre", "count")):
                     sentences.append(f"Il y a **{fv}** au total.")
+                elif any(x in kl for x in ("chauffeur",)):
+                    sentences.append(f"Il y a **{fv}** chauffeur{'s' if v and v > 1 else ''}.")
+                elif any(x in kl for x in ("vehicule", "vehicle")):
+                    sentences.append(f"Il y a **{fv}** véhicule{'s' if v and v > 1 else ''}.")
+                elif any(x in kl for x in ("incident",)):
+                    sentences.append(f"Il y a **{fv}** incident{'s' if v and v > 1 else ''}.")
+                elif any(x in kl for x in ("trajet",)):
+                    sentences.append(f"Il y a **{fv}** trajet{'s' if v and v > 1 else ''}.")
                 elif any(x in kl for x in ("recette", "revenu", "chiffre")):
                     sentences.append(f"La recette s'élève à **{fv}**.")
                 elif any(x in kl for x in ("cout", "budget", "depense")):
@@ -1004,15 +1013,34 @@ def synthesize_answer_fast(label: str, data: list, intent: str) -> str:
                     sentences.append(f"Le taux est de **{fv}**.")
                 elif any(x in kl for x in ("moy", "moyen", "average")):
                     sentences.append(f"La moyenne est de **{fv}**.")
+                elif any(x in kl for x in ("passager", "voyageur")):
+                    sentences.append(f"Il y a **{fv}** passager{'s' if v and v > 1 else ''}.")
+                elif any(x in kl for x in ("maintenance",)):
+                    sentences.append(f"Il y a **{fv}** maintenance{'s' if v and v > 1 else ''}.")
+                elif any(x in kl for x in ("ligne",)):
+                    sentences.append(f"Il y a **{fv}** ligne{'s' if v and v > 1 else ''}.")
                 else:
-                    sentences.append(f"**{fv}** {k.replace('_', ' ')}")
-            return f"{label}\n" + " ".join(sentences) if sentences else f"{label} **{_fmt_val(num_items[0][0], num_items[0][1])}**"
+                    sentences.append(f"Le résultat est **{fv}**.")
+            return " ".join(sentences) if sentences else f"Le résultat est **{_fmt_val(num_items[0][0], num_items[0][1])}**."
 
         # 1 résultat avec texte + chiffres (ex: recette d'une ligne spécifique)
         if text_items and num_items:
             intro = ", ".join(f"**{v}**" for _, v in text_items[:2])
-            details = " — ".join(_fmt_val(k, v) for k, v in num_items[:4])
-            return f"{label}\n{intro} : {details}"
+            detail_parts = []
+            for k, v in num_items[:4]:
+                kl = k.lower()
+                fv = _fmt_val(k, v)
+                if any(x in kl for x in ("recette", "revenu")):
+                    detail_parts.append(f"une recette de **{fv}**")
+                elif any(x in kl for x in ("trajet", "nb", "nombre")):
+                    detail_parts.append(f"**{fv}** trajet{'s' if v and v > 1 else ''}")
+                elif any(x in kl for x in ("passager", "voyageur")):
+                    detail_parts.append(f"**{fv}** passager{'s' if v and v > 1 else ''}")
+                elif any(x in kl for x in ("distance", "km")):
+                    detail_parts.append(f"**{fv}** km")
+                else:
+                    detail_parts.append(f"**{fv}** {k.replace('_', ' ')}")
+            return f"{intro} : " + ", ".join(detail_parts) + "."
 
     # ── 2. Distribution (GROUP BY boolean/enum : catégorie + nb) ───────────
     cat_col = cols[0]
@@ -1079,7 +1107,7 @@ def synthesize_answer_fast(label: str, data: list, intent: str) -> str:
         }.get(sort_col, sort_col.replace("_", " "))
 
         medals = ["🥇", "🥈", "🥉"] + [f"{i+1}." for i in range(3, 10)]
-        lines = [f"{label} classement par **{critere}** ({n} résultat{'s' if n > 1 else ''}) :"]
+        lines = [f"Voici le classement par **{critere}** ({n} résultat{'s' if n > 1 else ''}) :"]
         for i, row in enumerate(data[:10]):
             name    = str(row[first_col])
             details = " · ".join(_fmt_val(c, row[c]) for c in num_cols if row.get(c) is not None)
@@ -1088,16 +1116,36 @@ def synthesize_answer_fast(label: str, data: list, intent: str) -> str:
             lines.append(f"_... {n - 10} autres dans le tableau._")
         return "\n".join(lines)
 
-    # ── 4. Résultat unique avec plusieurs colonnes (ex: stats tableau de bord)
+    # ── 4. Résultat unique avec plusieurs colonnes (ex: fiche chauffeur/véhicule)
     if n == 1:
-        parts = []
+        sentences = []
         for k, v in row0.items():
-            if v is not None and k.lower() not in {"id"}:
-                if k.lower() in _bool_keys:
-                    parts.append(f"**{_humanize_cat(k, v)}**")
-                else:
-                    parts.append(f"**{_fmt_val(k, v)}** {k.replace('_', ' ')}")
-        return f"{label}\n" + " · ".join(parts)
+            if v is None or k.lower() in {"id"}:
+                continue
+            kl = k.lower()
+            fv = _fmt_val(k, v)
+            if kl in _bool_keys:
+                hv = _humanize_cat(k, v)
+                sentences.append(f"**{hv.capitalize()}**.")
+            elif kl in _ENUM_LABELS:
+                hv = _humanize_cat(k, v)
+                sentences.append(f"Statut : **{hv}**.")
+            elif any(x in kl for x in ("nom", "prenom", "name")):
+                sentences.append(f"Nom : **{fv}**.")
+            elif any(x in kl for x in ("recette", "revenu")):
+                sentences.append(f"Recette : **{fv}**.")
+            elif any(x in kl for x in ("date",)):
+                sentences.append(f"Date : **{fv}**.")
+            elif any(x in kl for x in ("immat",)):
+                sentences.append(f"Immatriculation : **{fv}**.")
+            elif any(x in kl for x in ("trajet", "nb", "nombre", "count")):
+                sentences.append(f"Nombre de trajets : **{fv}**.")
+            elif any(x in kl for x in ("passager", "voyageur")):
+                sentences.append(f"Passagers : **{fv}**.")
+            else:
+                sentences.append(f"{k.replace('_', ' ').capitalize()} : **{fv}**.")
+        intro = f"{label}\n" if label else ""
+        return intro + " ".join(sentences) if sentences else f"{label}\nAucune information disponible."
 
     # ── 5. Liste générale ──────────────────────────────────────────────────
     ll = label.lower()
@@ -1112,7 +1160,8 @@ def synthesize_answer_fast(label: str, data: list, intent: str) -> str:
     else:                       noun = "résultat" + ("s" if n > 1 else "")
 
     display_cols = [c for c in cols if c.lower() not in _skip][:5]
-    lines = [f"{label} **{n} {noun}** :"]
+    intro = f"J'ai trouvé **{n} {noun}**" + (" dans la base de données :" if n > 1 else " :")
+    lines = [intro]
     for row in data[:12]:
         parts = []
         for c in display_cols:
