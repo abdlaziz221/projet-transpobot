@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { 
-    Navigation, Clock, CheckCircle, XCircle, ChevronLeft, 
-    ChevronRight, Filter, Plus, FileSpreadsheet, Calendar, User, Truck
+import {
+    Navigation, Clock, CheckCircle, XCircle, ChevronLeft,
+    ChevronRight, Filter, Plus, FileSpreadsheet, Calendar, User, Truck, Check, Ban, RefreshCw
 } from 'lucide-react';
 import { fetchWithAuth } from '../lib/api';
 import { exportToExcel } from '../lib/excelUtils';
@@ -83,6 +83,34 @@ export default function TripsTracking({ search, setSearch }: any) {
             if (vRes.ok) setVehicles(await vRes.json());
         } catch (e) {
             toast.error("Erreur", "Échec du chargement des options.");
+        }
+    }
+
+    async function updateStatus(id: number, statut: 'termine' | 'annule') {
+        const label = statut === 'termine' ? 'terminer' : 'annuler';
+        if (!confirm(`Voulez-vous ${label} ce trajet ?`)) return;
+        const res = await fetchWithAuth(`/trajets_custom/${id}/status`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ statut })
+        });
+        if (res.ok) {
+            toast.success('Mise à jour', `Trajet marqué comme ${statut === 'termine' ? 'terminé' : 'annulé'}.`);
+            loadData();
+        } else {
+            toast.error('Erreur', 'Impossible de mettre à jour le statut.');
+        }
+    }
+
+    async function autoClose() {
+        if (!confirm('Clôturer automatiquement tous les trajets "en cours" depuis plus de 12h ?')) return;
+        const res = await fetchWithAuth('/trajets_custom/auto_close', { method: 'POST' });
+        if (res.ok) {
+            const data = await res.json();
+            toast.success('Auto-clôture', `${data.clotures} trajet(s) clôturé(s).`);
+            loadData();
+        } else {
+            toast.error('Erreur', 'Auto-clôture échouée.');
         }
     }
 
@@ -176,10 +204,29 @@ export default function TripsTracking({ search, setSearch }: any) {
             label: 'Recette',
             render: (v: any) => <span style={{ fontWeight: 800, color: 'var(--success)' }}>{v > 0 ? `${(v/1000).toFixed(0)}k` : '—'}</span>
         },
-        { 
-            key: 'statut', 
-            label: 'État', 
-            render: (v: any) => <Badge variant={STATUT_COLORS[v] || 'ghost'}>{v.replace('_', ' ')}</Badge> 
+        {
+            key: 'statut',
+            label: 'État',
+            render: (v: any) => <Badge variant={STATUT_COLORS[v] || 'ghost'}>{v.replace('_', ' ')}</Badge>
+        },
+        {
+            key: 'id',
+            label: 'Actions',
+            style: { textAlign: 'right' as const },
+            render: (v: any, row: any) => (
+                <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+                    {(row.statut === 'en_cours' || row.statut === 'planifie') && (
+                        <>
+                            <Button variant="ghost" size="sm" title="Terminer" onClick={() => updateStatus(v, 'termine')}>
+                                <Check size={15} color="var(--success)" />
+                            </Button>
+                            <Button variant="ghost" size="sm" title="Annuler" onClick={() => updateStatus(v, 'annule')}>
+                                <Ban size={15} color="var(--danger)" />
+                            </Button>
+                        </>
+                    )}
+                </div>
+            )
         }
     ];
 
@@ -219,6 +266,9 @@ export default function TripsTracking({ search, setSearch }: any) {
                                 <option value="planifie">Planifiés</option>
                                 <option value="annule">Annulés</option>
                             </select>
+                            <Button variant="outline" size="md" title="Clôturer les trajets inactifs (+12h)" onClick={autoClose}>
+                                <RefreshCw size={18} />
+                            </Button>
                             <Button variant="outline" size="md" onClick={() => exportToExcel(trips, 'Historique_Trajets')}>
                                 <FileSpreadsheet size={18} />
                             </Button>

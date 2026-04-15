@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_
 from typing import Optional, List
@@ -12,6 +12,45 @@ except ImportError:
     from ..models import Trajet, Ligne, Chauffeur, Vehicule, Incident
 
 router = APIRouter(prefix="/api/trajets_custom", tags=["Trajets Custom"])
+
+
+@router.patch("/{trajet_id}/status")
+def update_trajet_status(trajet_id: int, payload: dict, db: Session = Depends(get_db)):
+    """Met à jour le statut d'un trajet (termine, annule, en_cours, planifie)."""
+    trajet = db.query(Trajet).filter(Trajet.id == trajet_id).first()
+    if not trajet:
+        raise HTTPException(status_code=404, detail="Trajet non trouvé")
+
+    new_status = payload.get("statut")
+    VALID = {"termine", "annule", "en_cours", "planifie"}
+    if new_status not in VALID:
+        raise HTTPException(status_code=400, detail=f"Statut invalide. Valeurs acceptées : {VALID}")
+
+    trajet.statut = new_status
+    if new_status == "termine" and not trajet.date_heure_arrivee:
+        trajet.date_heure_arrivee = datetime.datetime.now()
+    db.commit()
+    return {"ok": True, "statut": new_status}
+
+
+@router.post("/auto_close")
+def auto_close_trajets(db: Session = Depends(get_db)):
+    """Clôture automatiquement tous les trajets 'en_cours' démarrés il y a plus de 12h."""
+    cutoff = datetime.datetime.now() - datetime.timedelta(hours=12)
+    stale = db.query(Trajet).filter(
+        Trajet.statut == "en_cours",
+        Trajet.date_heure_depart <= cutoff
+    ).all()
+
+    count = 0
+    for t in stale:
+        t.statut = "termine"
+        if not t.date_heure_arrivee:
+            t.date_heure_arrivee = datetime.datetime.now()
+        count += 1
+
+    db.commit()
+    return {"ok": True, "clotures": count}
 
 @router.get("")
 def get_trajets_custom(
