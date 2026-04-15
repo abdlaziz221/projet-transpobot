@@ -35,18 +35,39 @@ def update_trajet_status(trajet_id: int, payload: dict, db: Session = Depends(ge
 
 @router.post("/auto_close")
 def auto_close_trajets(db: Session = Depends(get_db)):
-    """Clôture automatiquement tous les trajets 'en_cours' démarrés il y a plus de 12h."""
-    cutoff = datetime.datetime.now() - datetime.timedelta(hours=12)
+    """Clôture automatiquement :
+    1. Les trajets 'en_cours' démarrés il y a plus de 12h
+    2. Les trajets 'en_cours' ou 'planifie' dont le chauffeur ou le véhicule n'existe plus (orphelins)
+    """
+    now = datetime.datetime.now()
+    cutoff = now - datetime.timedelta(hours=12)
+
+    # Cas 1 : trajets trop anciens
     stale = db.query(Trajet).filter(
         Trajet.statut == "en_cours",
         Trajet.date_heure_depart <= cutoff
     ).all()
 
+    # Cas 2 : trajets orphelins (référence supprimée)
+    valid_chauffeurs = {c.id for c in db.query(Chauffeur.id).all()}
+    valid_vehicules = {v.id for v in db.query(Vehicule.id).all()}
+
+    orphans = db.query(Trajet).filter(
+        Trajet.statut.in_(["en_cours", "planifie"])
+    ).filter(
+        (Trajet.chauffeur_id.notin_(valid_chauffeurs)) |
+        (Trajet.vehicule_id.notin_(valid_vehicules))
+    ).all()
+
+    to_close = {t.id: t for t in stale}
+    for t in orphans:
+        to_close[t.id] = t
+
     count = 0
-    for t in stale:
+    for t in to_close.values():
         t.statut = "termine"
         if not t.date_heure_arrivee:
-            t.date_heure_arrivee = datetime.datetime.now()
+            t.date_heure_arrivee = now
         count += 1
 
     db.commit()
@@ -76,9 +97,9 @@ def get_trajets_custom(
         Chauffeur.prenom.label("chauffeur_prenom"),
         Vehicule.immatriculation.label("vehicule_immat"),
         Vehicule.type.label("vehicule_type"),
-    ).join(Ligne, Trajet.ligne_id == Ligne.id)\
-     .join(Chauffeur, Trajet.chauffeur_id == Chauffeur.id)\
-     .join(Vehicule, Trajet.vehicule_id == Vehicule.id)
+    ).outerjoin(Ligne, Trajet.ligne_id == Ligne.id)\
+     .outerjoin(Chauffeur, Trajet.chauffeur_id == Chauffeur.id)\
+     .outerjoin(Vehicule, Trajet.vehicule_id == Vehicule.id)
 
     if statut:
         if len(statut) == 1 and statut[0].lower() == "all":
