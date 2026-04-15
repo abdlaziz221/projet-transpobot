@@ -20,6 +20,7 @@ export default function MaintenanceManagement({ search, setSearch }: any) {
         description: '',
         date_prevue: new Date().toISOString().split('T')[0],
         cout: 0,
+        kilometrage: 0,
         effectuee: false,
     });
 
@@ -61,7 +62,7 @@ export default function MaintenanceManagement({ search, setSearch }: any) {
         if (res.ok) {
             toast.success('Opération réussie', 'Maintenance planifiée avec succès.');
             setIsAddOpen(false);
-            setAddForm({ vehicule_id: 1, type: 'Vidange', description: '', date_prevue: new Date().toISOString().split('T')[0], cout: 0, effectuee: false });
+            setAddForm({ vehicule_id: 1, type: 'Vidange', description: '', date_prevue: new Date().toISOString().split('T')[0], cout: 0, kilometrage: 0, effectuee: false });
             loadAll();
         } else toast.error("Erreur", "La planification a échoué.");
     }
@@ -251,9 +252,15 @@ export default function MaintenanceManagement({ search, setSearch }: any) {
                             style={{ padding: '12px', borderRadius: '8px', border: '1px solid var(--border)', fontSize: '14px', resize: 'none' }}
                         />
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                        <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Estimation Budgétaire (FCFA)</label>
-                        <Input type="number" value={addForm.cout} onChange={(e:any) => setAddForm({ ...addForm, cout: +e.target.value })} />
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Estimation Budgétaire (FCFA)</label>
+                            <Input type="number" value={addForm.cout} onChange={(e:any) => setAddForm({ ...addForm, cout: +e.target.value })} />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <label style={{ fontSize: '12px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>Kilométrage actuel</label>
+                            <Input type="number" value={addForm.kilometrage} onChange={(e:any) => setAddForm({ ...addForm, kilometrage: +e.target.value })} placeholder="ex: 85000" />
+                        </div>
                     </div>
                     <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end', marginTop: '10px' }}>
                         <Button variant="ghost" onClick={() => setIsAddOpen(false)}>Annuler</Button>

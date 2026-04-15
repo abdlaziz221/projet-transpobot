@@ -118,7 +118,7 @@ class MaintenanceBase(BaseModel):
     date_prevue: date
     date_realisee: Optional[date] = None
     cout: float
-    kilometrage: int
+    kilometrage: Optional[int] = None
     effectuee: bool
 
 class Maintenance(MaintenanceBase):
