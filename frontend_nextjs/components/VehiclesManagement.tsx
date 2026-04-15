@@ -272,7 +272,7 @@ export default function VehiclesManagement({ search, setSearch }: any) {
                 </form>
             </Modal>
 
-            <Modal isOpen={!!viewVehicle} onClose={() => setViewVehicle(null)} title="Intelligence Flotte Châssis">
+            <Modal isOpen={!!viewVehicle} onClose={() => setViewVehicle(null)} title="Intelligence Flotte Châssis" width="640px">
                 {viewVehicle?.loading ? (
                     <div style={{ textAlign: 'center', padding: '60px' }}>
                          <div className="spinner" style={{ margin: '0 auto' }}></div>
