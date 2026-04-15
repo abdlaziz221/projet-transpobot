@@ -149,9 +149,20 @@ def seed_all():
                     effectuee=True
                 ))
 
-        # 8b. SYNC disponibilite des chauffeurs selon trajets actifs
+        # 8b. AUTO-CLOSE trajets en_cours dont l'heure d'arrivée est dépassée
+        now = datetime.datetime.now()
+        expired = session.query(Trajet).filter(
+            Trajet.statut == "en_cours",
+            Trajet.date_heure_arrivee < now
+        ).all()
+        if expired:
+            print(f"[AUTO] Clôture de {len(expired)} trajet(s) dont l'arrivée est dépassée...")
+            for t in expired:
+                t.statut = "termine"
+            session.commit()
+
+        # 8c. SYNC disponibilite des chauffeurs selon trajets réellement actifs
         print("[SYNC] Mise à jour disponibilite chauffeurs selon trajets en_cours...")
-        # Chauffeurs avec un trajet actif → indisponible
         active_chauffeur_ids = [
             row[0] for row in session.query(Trajet.chauffeur_id)
             .filter(Trajet.statut == "en_cours").distinct().all()
@@ -159,12 +170,11 @@ def seed_all():
         session.query(Chauffeur).filter(Chauffeur.id.in_(active_chauffeur_ids)).update(
             {"disponibilite": False}, synchronize_session=False
         )
-        # Chauffeurs sans trajet actif → disponible
         session.query(Chauffeur).filter(~Chauffeur.id.in_(active_chauffeur_ids)).update(
             {"disponibilite": True}, synchronize_session=False
         )
         session.commit()
-        print(f"[SYNC] {len(active_chauffeur_ids)} chauffeur(s) marqué(s) indisponible(s).")
+        print(f"[SYNC] {len(active_chauffeur_ids)} chauffeur(s) en course, reste disponible(s).")
 
         # 9. AFFECTATIONS
         if session.query(Affectation).count() == 0:
