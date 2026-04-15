@@ -59,7 +59,7 @@ def _cache_key(question: str) -> str:
 # ─────────────────────────────────────────────
 # SCHÉMA COMPACT  (~120 tokens au lieu de 600)
 # ─────────────────────────────────────────────
-SCHEMA_INFO = """Base SQLite — schéma complet :
+SCHEMA_INFO = """Base MySQL — schéma complet :
 vehicules(id,immatriculation TEXT,type TEXT[Bus/Minibus/Express],capacite INT,statut TEXT[actif/inactif/maintenance],kilometrage INT,date_acquisition DATE)
 chauffeurs(id,nom TEXT,prenom TEXT,telephone TEXT,numero_permis TEXT,disponibilite BOOL[0/1],date_embauche DATE)
 lignes(id,code TEXT,nom TEXT,origine TEXT,destination TEXT,distance_km INT,duree_minutes INT)
@@ -69,7 +69,7 @@ maintenance(id,vehicule_id FK,type TEXT,description TEXT,date_prevue DATE,cout I
 tarifs(id,ligne_id FK,type_client TEXT[normal/etudiant],prix INT,date_debut DATE,date_fin DATE)
 plannings(id,ligne_id FK,chauffeur_id FK,vehicule_id FK,date_heure_depart_prevue DATETIME,statut TEXT[planifie/effectue/annule])
 JOINTURES: incidents→trajets(trajet_id), trajets→chauffeurs(chauffeur_id), trajets→vehicules(vehicule_id), trajets→lignes(ligne_id)
-SQLite: CONCAT(a,' ',b) pour concat, strftime('%Y-%m',col) pour mois, date('now') pour aujourd'hui, date('now','-N days/months') pour dates relatives"""
+MySQL: CONCAT(a,' ',b) pour concat, DATE_FORMAT(col,'%Y-%m') pour mois, CURDATE() pour aujourd'hui, DATE_SUB(CURDATE(),INTERVAL N DAY/MONTH) pour dates relatives"""
 
 # ─────────────────────────────────────────────
 # FEW-SHOT EXAMPLES  (exemples JSON compacts)
@@ -79,7 +79,7 @@ Q:chauffeurs disponibles→{"sql":"SELECT nom,prenom,telephone FROM chauffeurs W
 Q:recette totale→{"sql":"SELECT SUM(recette) AS total FROM trajets WHERE statut='termine'","answer":"Recette totale:","intent":"financier"}
 Q:incidents graves non résolus→{"sql":"SELECT COUNT(*) AS nb FROM incidents WHERE gravite='grave' AND resolu=0","answer":"Incidents graves ouverts:","intent":"statistique"}
 Q:chauffeur avec le plus d'incidents→{"sql":"SELECT CONCAT(c.prenom,' ',c.nom) AS chauffeur,COUNT(i.id) AS nb_incidents FROM incidents i JOIN trajets t ON i.trajet_id=t.id JOIN chauffeurs c ON t.chauffeur_id=c.id GROUP BY c.id ORDER BY nb_incidents DESC LIMIT 5","answer":"Chauffeurs par incidents:","intent":"statistique"}
-Q:recettes par mois→{"sql":"SELECT strftime('%Y-%m',date_heure_depart) AS mois,SUM(recette) AS total FROM trajets WHERE statut='termine' GROUP BY mois ORDER BY mois DESC LIMIT 6","answer":"Recettes par mois:","intent":"financier"}
+Q:recettes par mois→{"sql":"SELECT DATE_FORMAT(date_heure_depart, '%Y-%m') AS mois,SUM(recette) AS total FROM trajets WHERE statut='termine' GROUP BY mois ORDER BY mois DESC LIMIT 6","answer":"Recettes par mois:","intent":"financier"}
 Q:véhicules en maintenance→{"sql":"SELECT v.immatriculation,v.type,m.type AS maintenance,m.date_prevue FROM maintenance m JOIN vehicules v ON m.vehicule_id=v.id WHERE m.effectuee=0 ORDER BY m.date_prevue","answer":"Véhicules en maintenance:","intent":"maintenance"}
 Q:taux occupation lignes→{"sql":"SELECT l.nom,ROUND(AVG(t.nb_passagers*100.0/v.capacite),1) AS taux_pct FROM trajets t JOIN vehicules v ON t.vehicule_id=v.id JOIN lignes l ON t.ligne_id=l.id WHERE t.statut='termine' AND v.capacite>0 GROUP BY l.id ORDER BY taux_pct DESC","answer":"Taux d'occupation:","intent":"statistique"}"""
 
@@ -184,7 +184,7 @@ _SHORTCUTS = [
      "SELECT v.immatriculation, v.type, COUNT(m.id) AS nb_maintenances, SUM(m.cout) AS cout_total FROM maintenance m JOIN vehicules v ON m.vehicule_id=v.id GROUP BY v.id ORDER BY nb_maintenances DESC",
      "Maintenances par véhicule :", "maintenance"),
     (r"v[eé]hicule.{0,40}(n[eé]cessit|besoin|pr[eé]voir|faut|prochain|urgent).{0,30}maintenance",
-     "SELECT v.immatriculation, v.type, v.kilometrage, m.type AS type_maintenance, m.date_prevue, CAST(julianday(m.date_prevue)-julianday('now') AS INTEGER) AS jours_restants FROM maintenance m JOIN vehicules v ON m.vehicule_id=v.id WHERE m.effectuee=0 ORDER BY m.date_prevue LIMIT 10",
+     "SELECT v.immatriculation, v.type, v.kilometrage, m.type AS type_maintenance, m.date_prevue, DATEDIFF(m.date_prevue, CURDATE()) AS jours_restants FROM maintenance m JOIN vehicules v ON m.vehicule_id=v.id WHERE m.effectuee=0 ORDER BY m.date_prevue LIMIT 10",
      "Véhicules nécessitant une maintenance :", "maintenance"),
     (r"taux.{0,20}(occupation|remplissage|capacit)",
      "SELECT l.nom, l.code, ROUND(AVG(t.nb_passagers * 1.0/v.capacite*100),1) AS taux_occupation_pct, COUNT(t.id) AS nb_trajets FROM trajets t JOIN vehicules v ON t.vehicule_id=v.id JOIN lignes l ON t.ligne_id=l.id WHERE t.statut='termine' AND v.capacite>0 GROUP BY l.id ORDER BY taux_occupation_pct DESC",
@@ -221,13 +221,13 @@ _SHORTCUTS = [
      "SELECT gravite, COUNT(*) AS nb, SUM(CASE WHEN resolu=0 THEN 1 ELSE 0 END) AS ouverts FROM incidents GROUP BY gravite",
      "Incidents par gravité :", "statistique"),
     (r"combien.{0,25}trajet.{0,25}(cette.semaine|semaine|7.jour|hebdo)",
-     "SELECT COUNT(*) AS trajets_semaine, SUM(CASE WHEN statut='termine' THEN 1 ELSE 0 END) AS termines, SUM(CASE WHEN statut='en_cours' THEN 1 ELSE 0 END) AS en_cours FROM trajets WHERE date(date_heure_depart)>=date('now','-7 days')",
+     "SELECT COUNT(*) AS trajets_semaine, SUM(CASE WHEN statut='termine' THEN 1 ELSE 0 END) AS termines, SUM(CASE WHEN statut='en_cours' THEN 1 ELSE 0 END) AS en_cours FROM trajets WHERE date(date_heure_depart)>=DATE_SUB(CURDATE(), INTERVAL 7 DAY)",
      "Trajets cette semaine :", "statistique"),
     (r"combien.{0,25}trajet.{0,25}(aujourd|du.jour|ce.jour|journ[eé]e)",
-     "SELECT COUNT(*) AS trajets_aujourd_hui, SUM(CASE WHEN statut='termine' THEN 1 ELSE 0 END) AS termines FROM trajets WHERE date(date_heure_depart)=date('now')",
+     "SELECT COUNT(*) AS trajets_aujourd_hui, SUM(CASE WHEN statut='termine' THEN 1 ELSE 0 END) AS termines FROM trajets WHERE date(date_heure_depart)=CURDATE()",
      "Trajets aujourd'hui :", "statistique"),
     (r"combien.{0,25}trajet.{0,25}(mois|mensuel)",
-     "SELECT COUNT(*) AS trajets_mois, SUM(CASE WHEN statut='termine' THEN 1 ELSE 0 END) AS termines FROM trajets WHERE strftime('%Y-%m',date_heure_depart)=strftime('%Y-%m',date('now'))",
+     "SELECT COUNT(*) AS trajets_mois, SUM(CASE WHEN statut='termine' THEN 1 ELSE 0 END) AS termines FROM trajets WHERE DATE_FORMAT(date_heure_depart, '%Y-%m')=DATE_FORMAT(date('now', '%Y-%m'))",
      "Trajets ce mois :", "statistique"),
     (r"combien.{0,20}trajet",
      "SELECT statut, COUNT(*) AS nb FROM trajets GROUP BY statut",
@@ -239,10 +239,10 @@ _SHORTCUTS = [
      "SELECT effectuee, COUNT(*) AS nb FROM maintenance GROUP BY effectuee",
      "Maintenances par statut :", "statistique"),
     (r"combien.{0,20}passager.{0,25}(aujourd|du.jour|journ[eé]e)",
-     "SELECT SUM(nb_passagers) AS passagers_jour, COUNT(*) AS nb_trajets FROM trajets WHERE statut='termine' AND date(date_heure_depart)=date('now')",
+     "SELECT SUM(nb_passagers) AS passagers_jour, COUNT(*) AS nb_trajets FROM trajets WHERE statut='termine' AND date(date_heure_depart)=CURDATE()",
      "Passagers du jour :", "statistique"),
     (r"combien.{0,20}passager.{0,25}(semaine|7.jour)",
-     "SELECT SUM(nb_passagers) AS passagers_semaine, COUNT(*) AS nb_trajets FROM trajets WHERE statut='termine' AND date(date_heure_depart)>=date('now','-7 days')",
+     "SELECT SUM(nb_passagers) AS passagers_semaine, COUNT(*) AS nb_trajets FROM trajets WHERE statut='termine' AND date(date_heure_depart)>=DATE_SUB(CURDATE(), INTERVAL 7 DAY)",
      "Passagers cette semaine :", "statistique"),
     (r"combien.{0,20}passager",
      "SELECT SUM(nb_passagers) AS total_passagers, ROUND(AVG(nb_passagers),0) AS moy_par_trajet FROM trajets WHERE statut='termine'",
@@ -264,7 +264,7 @@ _SHORTCUTS = [
      "SELECT CONCAT(c.prenom,' ',c.nom) AS chauffeur, COUNT(t.id) AS nb_trajets, SUM(t.recette) AS recette FROM trajets t JOIN chauffeurs c ON t.chauffeur_id=c.id WHERE t.statut='termine' GROUP BY c.id ORDER BY nb_trajets DESC LIMIT 15",
      "Trajets par chauffeur :", "statistique"),
     (r"chauffeur.{0,20}(anciennet[eé]|embauch|date)",
-     "SELECT nom, prenom, date_embauche, CAST((julianday('now')-julianday(date_embauche))/365 AS INTEGER) AS annees_service FROM chauffeurs ORDER BY date_embauche ASC",
+     "SELECT nom, prenom, date_embauche, TIMESTAMPDIFF(YEAR, date_embauche, CURDATE()) AS annees_service FROM chauffeurs ORDER BY date_embauche ASC",
      "Ancienneté des chauffeurs :", "liste"),
     # == VEHICULES ==
     (r"v[eé]hicule[s]?.{0,15}(maintenance|reparation|en.panne)",
@@ -302,7 +302,7 @@ _SHORTCUTS = [
      "SELECT type, gravite, COUNT(*) AS nb, SUM(CASE WHEN resolu=0 THEN 1 ELSE 0 END) AS ouverts FROM incidents GROUP BY type, gravite ORDER BY CASE gravite WHEN 'grave' THEN 1 WHEN 'moyen' THEN 2 ELSE 3 END",
      "Incidents par type et gravité :", "statistique"),
     (r"incident.{0,25}(par.{0,5})?mois",
-     "SELECT strftime('%Y-%m', date_incident) AS mois, COUNT(*) AS nb, SUM(CASE WHEN gravite='grave' THEN 1 ELSE 0 END) AS graves FROM incidents GROUP BY mois ORDER BY mois DESC LIMIT 12",
+     "SELECT DATE_FORMAT(date_incident, '%Y-%m') AS mois, COUNT(*) AS nb, SUM(CASE WHEN gravite='grave' THEN 1 ELSE 0 END) AS graves FROM incidents GROUP BY mois ORDER BY mois DESC LIMIT 12",
      "Incidents par mois :", "statistique"),
     (r"incident.{0,25}(par.{0,5})?type",
      "SELECT type, COUNT(*) AS nb, SUM(CASE WHEN gravite='grave' THEN 1 ELSE 0 END) AS graves, SUM(CASE WHEN resolu=0 THEN 1 ELSE 0 END) AS ouverts FROM incidents GROUP BY type ORDER BY nb DESC",
@@ -318,22 +318,22 @@ _SHORTCUTS = [
      "Taux de résolution des incidents :", "statistique"),
     # == MAINTENANCE ==
     (r"maintenance[s]?.{0,20}(non.effectu|en.attente|pr[eé]vue[s]?|programm)",
-     "SELECT v.immatriculation, v.type, m.type AS maintenance, m.date_prevue, m.cout, CAST(julianday(m.date_prevue)-julianday('now') AS INTEGER) AS jours_restants FROM maintenance m JOIN vehicules v ON m.vehicule_id=v.id WHERE m.effectuee=0 ORDER BY m.date_prevue",
+     "SELECT v.immatriculation, v.type, m.type AS maintenance, m.date_prevue, m.cout, DATEDIFF(m.date_prevue, CURDATE()) AS jours_restants FROM maintenance m JOIN vehicules v ON m.vehicule_id=v.id WHERE m.effectuee=0 ORDER BY m.date_prevue",
      "Maintenances en attente :", "maintenance"),
     (r"maintenance[s]?.{0,20}(effectu[eé]|termin[eé]|fait[s]?|pass[eé])",
      "SELECT v.immatriculation, m.type AS maintenance, m.date_prevue, m.cout FROM maintenance m JOIN vehicules v ON m.vehicule_id=v.id WHERE m.effectuee=1 ORDER BY m.date_prevue DESC LIMIT 20",
      "Maintenances effectuées :", "maintenance"),
     (r"(co[uû]t|montant|d[eé]pense).{0,20}maintenance",
-     "SELECT strftime('%Y-%m', date_prevue) AS mois, SUM(cout) AS total, COUNT(*) AS nb FROM maintenance GROUP BY mois ORDER BY mois DESC LIMIT 12",
+     "SELECT DATE_FORMAT(date_prevue, '%Y-%m') AS mois, SUM(cout) AS total, COUNT(*) AS nb FROM maintenance GROUP BY mois ORDER BY mois DESC LIMIT 12",
      "Coûts de maintenance par mois :", "financier"),
     (r"co[uû]t.{0,20}(total|global).{0,20}maintenance|budget.{0,15}maintenance",
      "SELECT SUM(cout) AS cout_total, SUM(CASE WHEN effectuee=1 THEN cout ELSE 0 END) AS effectue, SUM(CASE WHEN effectuee=0 THEN cout ELSE 0 END) AS prevu FROM maintenance",
      "Coût total de maintenance :", "financier"),
     (r"prochaine.{0,20}maintenance",
-     "SELECT v.immatriculation, v.type, m.type AS maintenance, m.date_prevue, CAST(julianday(m.date_prevue)-julianday('now') AS INTEGER) AS jours_restants FROM maintenance m JOIN vehicules v ON m.vehicule_id=v.id WHERE m.effectuee=0 AND date(m.date_prevue)>=date('now') ORDER BY m.date_prevue LIMIT 10",
+     "SELECT v.immatriculation, v.type, m.type AS maintenance, m.date_prevue, DATEDIFF(m.date_prevue, CURDATE()) AS jours_restants FROM maintenance m JOIN vehicules v ON m.vehicule_id=v.id WHERE m.effectuee=0 AND date(m.date_prevue)>=CURDATE() ORDER BY m.date_prevue LIMIT 10",
      "Prochaines maintenances :", "maintenance"),
     (r"maintenance.{0,25}urgent|urgent.{0,25}maintenance",
-     "SELECT v.immatriculation, v.type, m.type AS maintenance, m.date_prevue, CAST(julianday(m.date_prevue)-julianday('now') AS INTEGER) AS jours_restants FROM maintenance m JOIN vehicules v ON m.vehicule_id=v.id WHERE m.effectuee=0 AND date(m.date_prevue)<=date('now','+7 days') ORDER BY m.date_prevue",
+     "SELECT v.immatriculation, v.type, m.type AS maintenance, m.date_prevue, DATEDIFF(m.date_prevue, CURDATE()) AS jours_restants FROM maintenance m JOIN vehicules v ON m.vehicule_id=v.id WHERE m.effectuee=0 AND date(m.date_prevue)<=DATE_ADD(CURDATE(), INTERVAL 7 DAY) ORDER BY m.date_prevue",
      "Maintenances urgentes (7 jours) :", "maintenance"),
     (r"(liste|toutes?|tous).{0,15}maintenance",
      "SELECT v.immatriculation, m.type, m.date_prevue, m.cout, CASE m.effectuee WHEN 1 THEN 'Effectuée' ELSE 'En attente' END AS statut FROM maintenance m JOIN vehicules v ON m.vehicule_id=v.id ORDER BY m.date_prevue DESC",
@@ -362,13 +362,13 @@ _SHORTCUTS = [
      "SELECT l.nom, l.code, SUM(t.recette) AS recette_totale, COUNT(t.id) AS nb_trajets, SUM(t.nb_passagers) AS nb_passagers FROM trajets t JOIN lignes l ON t.ligne_id=l.id WHERE t.statut='termine' GROUP BY l.id ORDER BY recette_totale DESC",
      "Recettes par ligne :", "financier"),
     (r"recette[s]?.{0,25}(mois|mensuel|par.mois)",
-     "SELECT strftime('%Y-%m', date_heure_depart) AS mois, SUM(recette) AS recette_totale, COUNT(*) AS nb_trajets, SUM(nb_passagers) AS passagers FROM trajets WHERE statut='termine' GROUP BY mois ORDER BY mois DESC LIMIT 12",
+     "SELECT DATE_FORMAT(date_heure_depart, '%Y-%m') AS mois, SUM(recette) AS recette_totale, COUNT(*) AS nb_trajets, SUM(nb_passagers) AS passagers FROM trajets WHERE statut='termine' GROUP BY mois ORDER BY mois DESC LIMIT 12",
      "Recettes par mois :", "financier"),
     (r"recette[s]?.{0,25}(semaine|hebdo)",
-     "SELECT strftime('%W-%Y', date_heure_depart) AS semaine, SUM(recette) AS recette_totale, COUNT(*) AS nb_trajets FROM trajets WHERE statut='termine' GROUP BY semaine ORDER BY semaine DESC LIMIT 8",
+     "SELECT DATE_FORMAT(date_heure_depart, '%Y-%u') AS semaine, SUM(recette) AS recette_totale, COUNT(*) AS nb_trajets FROM trajets WHERE statut='termine' GROUP BY semaine ORDER BY semaine DESC LIMIT 8",
      "Recettes par semaine :", "financier"),
     (r"recette[s]?.{0,15}(aujourd|du.jour|journ[eé]e)",
-     "SELECT SUM(recette) AS recette_jour, COUNT(*) AS nb_trajets FROM trajets WHERE statut='termine' AND date(date_heure_depart)=date('now')",
+     "SELECT SUM(recette) AS recette_jour, COUNT(*) AS nb_trajets FROM trajets WHERE statut='termine' AND date(date_heure_depart)=CURDATE()",
      "Recette du jour :", "financier"),
     (r"recette[s]?.{0,15}(total|global|cumul|tout)",
      "SELECT SUM(recette) AS recette_totale, COUNT(*) AS nb_trajets, SUM(nb_passagers) AS total_passagers FROM trajets WHERE statut='termine'",
@@ -380,14 +380,14 @@ _SHORTCUTS = [
      "SELECT ROUND(AVG(recette),0) AS recette_moy_trajet, MIN(recette) AS min, MAX(recette) AS max FROM trajets WHERE statut='termine'",
      "Recette moyenne par trajet :", "financier"),
     (r"passager[s]?.{0,25}(mois|mensuel|par.mois)",
-     "SELECT strftime('%Y-%m', date_heure_depart) AS mois, SUM(nb_passagers) AS nb_passagers, COUNT(*) AS nb_trajets FROM trajets WHERE statut='termine' GROUP BY mois ORDER BY mois DESC LIMIT 12",
+     "SELECT DATE_FORMAT(date_heure_depart, '%Y-%m') AS mois, SUM(nb_passagers) AS nb_passagers, COUNT(*) AS nb_trajets FROM trajets WHERE statut='termine' GROUP BY mois ORDER BY mois DESC LIMIT 12",
      "Passagers par mois :", "statistique"),
     (r"passager.{0,20}(moyen|moy|par.trajet)",
      "SELECT ROUND(AVG(nb_passagers),1) AS moy_passagers_trajet, MAX(nb_passagers) AS max, MIN(nb_passagers) AS min FROM trajets WHERE statut='termine'",
      "Passagers moyens par trajet :", "statistique"),
     # == TRAJETS ==
     (r"trajet[s]?.{0,20}(aujourd|du.jour|journ[eé]e)",
-     "SELECT t.date_heure_depart, l.nom AS ligne, CONCAT(c.prenom,' ',c.nom) AS chauffeur, t.statut, t.nb_passagers FROM trajets t JOIN lignes l ON t.ligne_id=l.id JOIN chauffeurs c ON t.chauffeur_id=c.id WHERE date(t.date_heure_depart)=date('now') ORDER BY t.date_heure_depart",
+     "SELECT t.date_heure_depart, l.nom AS ligne, CONCAT(c.prenom,' ',c.nom) AS chauffeur, t.statut, t.nb_passagers FROM trajets t JOIN lignes l ON t.ligne_id=l.id JOIN chauffeurs c ON t.chauffeur_id=c.id WHERE date(t.date_heure_depart)=CURDATE() ORDER BY t.date_heure_depart",
      "Trajets d'aujourd'hui :", "liste"),
     (r"trajet[s]?.{0,20}(en.cours|actif[s]?|actuel[s]?)",
      "SELECT t.date_heure_depart, l.nom AS ligne, CONCAT(c.prenom,' ',c.nom) AS chauffeur, v.immatriculation, t.nb_passagers FROM trajets t JOIN lignes l ON t.ligne_id=l.id JOIN chauffeurs c ON t.chauffeur_id=c.id JOIN vehicules v ON t.vehicule_id=v.id WHERE t.statut='en_cours' ORDER BY t.date_heure_depart",
@@ -400,30 +400,30 @@ _SHORTCUTS = [
      "Derniers trajets :", "liste"),
     # == TABLEAU DE BORD ==
     (r"(stat|r[eé]sum[eé]|tableau.de.bord|bilan|performance|analyse|rapport|activit[eé]|situation|vue.ens|r[eé]capitulatif|synth[eè]se|overview|flotte|global|g[eé]n[eé]ral|kpi)",
-     "SELECT (SELECT COUNT(*) FROM vehicules WHERE statut='actif') AS vehicules_actifs, (SELECT COUNT(*) FROM vehicules) AS total_vehicules, (SELECT COUNT(*) FROM chauffeurs WHERE disponibilite=1) AS chauffeurs_disponibles, (SELECT COUNT(*) FROM incidents WHERE resolu=0) AS incidents_ouverts, (SELECT COUNT(*) FROM incidents WHERE gravite='grave' AND resolu=0) AS incidents_graves, (SELECT COALESCE(SUM(recette),0) FROM trajets WHERE statut='termine' AND date(date_heure_depart)=date('now')) AS recette_jour, (SELECT COUNT(*) FROM trajets WHERE date(date_heure_depart)=date('now')) AS trajets_aujourd_hui, (SELECT COUNT(*) FROM maintenance WHERE effectuee=0) AS maintenances_en_attente",
+     "SELECT (SELECT COUNT(*) FROM vehicules WHERE statut='actif') AS vehicules_actifs, (SELECT COUNT(*) FROM vehicules) AS total_vehicules, (SELECT COUNT(*) FROM chauffeurs WHERE disponibilite=1) AS chauffeurs_disponibles, (SELECT COUNT(*) FROM incidents WHERE resolu=0) AS incidents_ouverts, (SELECT COUNT(*) FROM incidents WHERE gravite='grave' AND resolu=0) AS incidents_graves, (SELECT COALESCE(SUM(recette),0) FROM trajets WHERE statut='termine' AND date(date_heure_depart)=CURDATE()) AS recette_jour, (SELECT COUNT(*) FROM trajets WHERE date(date_heure_depart)=CURDATE()) AS trajets_aujourd_hui, (SELECT COUNT(*) FROM maintenance WHERE effectuee=0) AS maintenances_en_attente",
      "Tableau de bord :", "statistique"),
     # == PLANNING ==
     (r"planning.{0,25}(demain|lendemain)",
-     "SELECT p.date_heure_depart_prevue, l.nom AS ligne, CONCAT(c.prenom,' ',c.nom) AS chauffeur, v.immatriculation, p.statut FROM plannings p JOIN lignes l ON p.ligne_id=l.id JOIN chauffeurs c ON p.chauffeur_id=c.id JOIN vehicules v ON p.vehicule_id=v.id WHERE date(p.date_heure_depart_prevue)=date('now','+1 day') ORDER BY p.date_heure_depart_prevue",
+     "SELECT p.date_heure_depart_prevue, l.nom AS ligne, CONCAT(c.prenom,' ',c.nom) AS chauffeur, v.immatriculation, p.statut FROM plannings p JOIN lignes l ON p.ligne_id=l.id JOIN chauffeurs c ON p.chauffeur_id=c.id JOIN vehicules v ON p.vehicule_id=v.id WHERE date(p.date_heure_depart_prevue)=DATE_ADD(CURDATE(), INTERVAL 1 DAY) ORDER BY p.date_heure_depart_prevue",
      "Planning de demain :", "planning"),
     (r"planning.{0,25}(semaine|7.jour|hebdo)",
-     "SELECT p.date_heure_depart_prevue, l.nom AS ligne, CONCAT(c.prenom,' ',c.nom) AS chauffeur, p.statut FROM plannings p JOIN lignes l ON p.ligne_id=l.id JOIN chauffeurs c ON p.chauffeur_id=c.id WHERE date(p.date_heure_depart_prevue) BETWEEN date('now') AND date('now','+7 days') ORDER BY p.date_heure_depart_prevue",
+     "SELECT p.date_heure_depart_prevue, l.nom AS ligne, CONCAT(c.prenom,' ',c.nom) AS chauffeur, p.statut FROM plannings p JOIN lignes l ON p.ligne_id=l.id JOIN chauffeurs c ON p.chauffeur_id=c.id WHERE date(p.date_heure_depart_prevue) BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY) ORDER BY p.date_heure_depart_prevue",
      "Planning de la semaine :", "planning"),
     (r"planning",
-     "SELECT p.date_heure_depart_prevue, l.nom AS ligne, CONCAT(c.prenom,' ',c.nom) AS chauffeur, v.immatriculation, p.statut FROM plannings p JOIN lignes l ON p.ligne_id=l.id JOIN chauffeurs c ON p.chauffeur_id=c.id JOIN vehicules v ON p.vehicule_id=v.id WHERE date(p.date_heure_depart_prevue)=date('now') ORDER BY p.date_heure_depart_prevue",
+     "SELECT p.date_heure_depart_prevue, l.nom AS ligne, CONCAT(c.prenom,' ',c.nom) AS chauffeur, v.immatriculation, p.statut FROM plannings p JOIN lignes l ON p.ligne_id=l.id JOIN chauffeurs c ON p.chauffeur_id=c.id JOIN vehicules v ON p.vehicule_id=v.id WHERE date(p.date_heure_depart_prevue)=CURDATE() ORDER BY p.date_heure_depart_prevue",
      "Planning du jour :", "planning"),
     # == TARIFS ==
     (r"tarif[s]?.{0,10}[eé]tudiant",
-     "SELECT l.nom, tf.prix FROM tarifs tf JOIN lignes l ON tf.ligne_id=l.id WHERE tf.type_client='etudiant' AND date('now') BETWEEN tf.date_debut AND tf.date_fin ORDER BY l.nom",
+     "SELECT l.nom, tf.prix FROM tarifs tf JOIN lignes l ON tf.ligne_id=l.id WHERE tf.type_client='etudiant' AND CURDATE() BETWEEN tf.date_debut AND tf.date_fin ORDER BY l.nom",
      "Tarifs étudiants :", "liste"),
     (r"tarif[s]?.{0,10}normal",
-     "SELECT l.nom, tf.prix FROM tarifs tf JOIN lignes l ON tf.ligne_id=l.id WHERE tf.type_client='normal' AND date('now') BETWEEN tf.date_debut AND tf.date_fin ORDER BY l.nom",
+     "SELECT l.nom, tf.prix FROM tarifs tf JOIN lignes l ON tf.ligne_id=l.id WHERE tf.type_client='normal' AND CURDATE() BETWEEN tf.date_debut AND tf.date_fin ORDER BY l.nom",
      "Tarifs normaux :", "liste"),
     (r"(diff[eé]rence|compar).{0,20}(tarif|prix)",
      "SELECT l.nom, MAX(CASE WHEN tf.type_client='normal' THEN tf.prix END) AS tarif_normal, MAX(CASE WHEN tf.type_client='etudiant' THEN tf.prix END) AS tarif_etudiant FROM tarifs tf JOIN lignes l ON tf.ligne_id=l.id GROUP BY l.id ORDER BY l.nom",
      "Comparaison des tarifs :", "liste"),
     (r"tarif|prix.{0,15}(billet|ticket|voyage|transport)",
-     "SELECT l.nom, tf.type_client, tf.prix FROM tarifs tf JOIN lignes l ON tf.ligne_id=l.id WHERE date('now') BETWEEN tf.date_debut AND tf.date_fin ORDER BY l.nom, tf.type_client",
+     "SELECT l.nom, tf.type_client, tf.prix FROM tarifs tf JOIN lignes l ON tf.ligne_id=l.id WHERE CURDATE() BETWEEN tf.date_debut AND tf.date_fin ORDER BY l.nom, tf.type_client",
      "Tous les tarifs :", "liste"),
 ]
 
@@ -503,15 +503,15 @@ def smart_fallback(question: str) -> dict | None:
     }.get(entity)
     if date_col:
         if re.search(r"aujourd", q):
-            where.append(f"date({date_col})=date('now')")
+            where.append(f"date({date_col})=CURDATE()")
         elif re.search(r"\bhier\b", q):
-            where.append(f"date({date_col})=date('now','-1 day')")
+            where.append(f"date({date_col})=DATE_SUB(CURDATE(), INTERVAL 1 DAY)")
         elif re.search(r"cette.semaine|7.jours", q):
-            where.append(f"date({date_col})>=date('now','-7 days')")
+            where.append(f"date({date_col})>=DATE_SUB(CURDATE(), INTERVAL 7 DAY)")
         elif re.search(r"ce.mois", q):
-            where.append(f"strftime('%Y-%m',{date_col})=strftime('%Y-%m',date('now'))")
+            where.append(f"DATE_FORMAT({date_col}, '%Y-%m')=DATE_FORMAT(CURDATE(), '%Y-%m')")
         elif re.search(r"30.jours|dernier.mois", q):
-            where.append(f"date({date_col})>=date('now','-30 days')")
+            where.append(f"date({date_col})>=DATE_SUB(CURDATE(), INTERVAL 30 DAY)")
 
     wstr = ("WHERE " + " AND ".join(where)) if where else ""
 
@@ -556,7 +556,7 @@ def smart_fallback(question: str) -> dict | None:
             sql = "SELECT gravite, COUNT(*) AS total, SUM(CASE WHEN resolu=0 THEN 1 ELSE 0 END) AS ouverts FROM incidents GROUP BY gravite"
             answer = "Incidents par gravité :"
         elif re.search(r"par.mois|mensuel", q):
-            sql = "SELECT strftime('%Y-%m', date_incident) AS mois, COUNT(*) AS nb, SUM(CASE WHEN gravite='grave' THEN 1 ELSE 0 END) AS graves FROM incidents GROUP BY mois ORDER BY mois DESC LIMIT 12"
+            sql = "SELECT DATE_FORMAT(date_incident, '%Y-%m') AS mois, COUNT(*) AS nb, SUM(CASE WHEN gravite='grave' THEN 1 ELSE 0 END) AS graves FROM incidents GROUP BY mois ORDER BY mois DESC LIMIT 12"
             answer = "Incidents par mois :"
         elif re.search(r"type", q):
             sql = "SELECT type, COUNT(*) AS nb FROM incidents GROUP BY type ORDER BY nb DESC"
@@ -571,7 +571,7 @@ def smart_fallback(question: str) -> dict | None:
             sql = "SELECT statut, COUNT(*) AS nb FROM trajets GROUP BY statut"
             answer = "Trajets par statut :"
         elif is_sum or re.search(r"recette", q):
-            sql = "SELECT strftime('%Y-%m', date_heure_depart) AS mois, SUM(recette) AS total, COUNT(*) AS nb FROM trajets WHERE statut='termine' GROUP BY mois ORDER BY mois DESC LIMIT 6"
+            sql = "SELECT DATE_FORMAT(date_heure_depart, '%Y-%m') AS mois, SUM(recette) AS total, COUNT(*) AS nb FROM trajets WHERE statut='termine' GROUP BY mois ORDER BY mois DESC LIMIT 6"
             answer = "Recettes par mois :"
             intent = "financier"
         elif is_top:
@@ -600,11 +600,11 @@ def smart_fallback(question: str) -> dict | None:
             sql = "SELECT effectuee, COUNT(*) AS nb, SUM(cout) AS cout_total FROM maintenance GROUP BY effectuee"
             answer = "Maintenances par statut :"
         elif re.search(r"co[uû]t|montant", q):
-            sql = "SELECT strftime('%Y-%m', date_prevue) AS mois, SUM(cout) AS total, COUNT(*) AS nb FROM maintenance GROUP BY mois ORDER BY mois DESC LIMIT 6"
+            sql = "SELECT DATE_FORMAT(date_prevue, '%Y-%m') AS mois, SUM(cout) AS total, COUNT(*) AS nb FROM maintenance GROUP BY mois ORDER BY mois DESC LIMIT 6"
             answer = "Coûts de maintenance par mois :"
             intent = "financier"
         elif re.search(r"urgent|bient[oô]t|prochain", q):
-            sql = "SELECT v.immatriculation, m.type, m.date_prevue, m.cout, CAST(julianday(m.date_prevue)-julianday('now') AS INTEGER) AS jours_restants FROM maintenance m JOIN vehicules v ON m.vehicule_id=v.id WHERE m.effectuee=0 AND m.date_prevue<=date('now','+14 days') ORDER BY m.date_prevue"
+            sql = "SELECT v.immatriculation, m.type, m.date_prevue, m.cout, DATEDIFF(m.date_prevue, CURDATE()) AS jours_restants FROM maintenance m JOIN vehicules v ON m.vehicule_id=v.id WHERE m.effectuee=0 AND m.date_prevue<=DATE_ADD(CURDATE(), INTERVAL 14 DAY) ORDER BY m.date_prevue"
             answer = "Maintenances urgentes :"
         else:
             sql = f"SELECT v.immatriculation, m.type, m.date_prevue, m.cout, m.effectuee FROM maintenance m JOIN vehicules v ON m.vehicule_id=v.id {wstr} ORDER BY m.date_prevue"
@@ -612,20 +612,20 @@ def smart_fallback(question: str) -> dict | None:
         intent = "maintenance"
 
     elif entity == "tarif":
-        wstr_tarif = ("WHERE " + " AND ".join(where + ["date('now') BETWEEN tf.date_debut AND tf.date_fin"])) if where else "WHERE date('now') BETWEEN tf.date_debut AND tf.date_fin"
+        wstr_tarif = ("WHERE " + " AND ".join(where + ["CURDATE() BETWEEN tf.date_debut AND tf.date_fin"])) if where else "WHERE CURDATE() BETWEEN tf.date_debut AND tf.date_fin"
         sql = f"SELECT l.nom, tf.type_client, tf.prix FROM tarifs tf JOIN lignes l ON tf.ligne_id=l.id {wstr_tarif} ORDER BY l.nom, tf.type_client"
         answer = "Tarifs en vigueur :"
         intent = "liste"
 
     elif entity == "planning":
         if re.search(r"demain", q):
-            sql = "SELECT p.date_heure_depart_prevue, l.nom AS ligne, CONCAT(c.prenom, ' ', c.nom) AS chauffeur, v.immatriculation FROM plannings p JOIN lignes l ON p.ligne_id=l.id JOIN chauffeurs c ON p.chauffeur_id=c.id JOIN vehicules v ON p.vehicule_id=v.id WHERE date(p.date_heure_depart_prevue)=date('now','+1 day') ORDER BY p.date_heure_depart_prevue"
+            sql = "SELECT p.date_heure_depart_prevue, l.nom AS ligne, CONCAT(c.prenom, ' ', c.nom) AS chauffeur, v.immatriculation FROM plannings p JOIN lignes l ON p.ligne_id=l.id JOIN chauffeurs c ON p.chauffeur_id=c.id JOIN vehicules v ON p.vehicule_id=v.id WHERE date(p.date_heure_depart_prevue)=DATE_ADD(CURDATE(), INTERVAL 1 DAY) ORDER BY p.date_heure_depart_prevue"
             answer = "Planning de demain :"
         elif re.search(r"semaine", q):
-            sql = "SELECT p.date_heure_depart_prevue, l.nom AS ligne, CONCAT(c.prenom, ' ', c.nom) AS chauffeur, p.statut FROM plannings p JOIN lignes l ON p.ligne_id=l.id JOIN chauffeurs c ON p.chauffeur_id=c.id WHERE date(p.date_heure_depart_prevue) BETWEEN date('now') AND date('now','+7 days') ORDER BY p.date_heure_depart_prevue"
+            sql = "SELECT p.date_heure_depart_prevue, l.nom AS ligne, CONCAT(c.prenom, ' ', c.nom) AS chauffeur, p.statut FROM plannings p JOIN lignes l ON p.ligne_id=l.id JOIN chauffeurs c ON p.chauffeur_id=c.id WHERE date(p.date_heure_depart_prevue) BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 7 DAY) ORDER BY p.date_heure_depart_prevue"
             answer = "Planning de la semaine :"
         else:
-            sql = "SELECT p.date_heure_depart_prevue, l.nom AS ligne, CONCAT(c.prenom, ' ', c.nom) AS chauffeur, v.immatriculation, p.statut FROM plannings p JOIN lignes l ON p.ligne_id=l.id JOIN chauffeurs c ON p.chauffeur_id=c.id JOIN vehicules v ON p.vehicule_id=v.id WHERE date(p.date_heure_depart_prevue)=date('now') ORDER BY p.date_heure_depart_prevue"
+            sql = "SELECT p.date_heure_depart_prevue, l.nom AS ligne, CONCAT(c.prenom, ' ', c.nom) AS chauffeur, v.immatriculation, p.statut FROM plannings p JOIN lignes l ON p.ligne_id=l.id JOIN chauffeurs c ON p.chauffeur_id=c.id JOIN vehicules v ON p.vehicule_id=v.id WHERE date(p.date_heure_depart_prevue)=CURDATE() ORDER BY p.date_heure_depart_prevue"
             answer = "Planning du jour :"
         intent = "liste"
 
@@ -637,13 +637,13 @@ def smart_fallback(question: str) -> dict | None:
             sql = f"SELECT CONCAT(c.prenom, ' ', c.nom) AS chauffeur, SUM(t.recette) AS recette, SUM(t.nb_passagers) AS passagers FROM trajets t JOIN chauffeurs c ON t.chauffeur_id=c.id WHERE t.statut='termine' GROUP BY c.id ORDER BY recette DESC LIMIT {lim}"
             answer = "Recettes par chauffeur :"
         elif re.search(r"jour", q):
-            sql = "SELECT SUM(recette) AS recette_jour, SUM(nb_passagers) AS passagers_jour FROM trajets WHERE statut='termine' AND date(date_heure_depart)=date('now')"
+            sql = "SELECT SUM(recette) AS recette_jour, SUM(nb_passagers) AS passagers_jour FROM trajets WHERE statut='termine' AND date(date_heure_depart)=CURDATE()"
             answer = "Recettes du jour :"
         elif re.search(r"semaine", q):
-            sql = "SELECT SUM(recette) AS recette_semaine, SUM(nb_passagers) AS passagers_semaine FROM trajets WHERE statut='termine' AND date(date_heure_depart)>=date('now','-7 days')"
+            sql = "SELECT SUM(recette) AS recette_semaine, SUM(nb_passagers) AS passagers_semaine FROM trajets WHERE statut='termine' AND date(date_heure_depart)>=DATE_SUB(CURDATE(), INTERVAL 7 DAY)"
             answer = "Recettes de la semaine :"
         else:
-            sql = "SELECT strftime('%Y-%m', date_heure_depart) AS mois, SUM(recette) AS recette_totale, SUM(nb_passagers) AS total_passagers FROM trajets WHERE statut='termine' GROUP BY mois ORDER BY mois DESC LIMIT 12"
+            sql = "SELECT DATE_FORMAT(date_heure_depart, '%Y-%m') AS mois, SUM(recette) AS recette_totale, SUM(nb_passagers) AS total_passagers FROM trajets WHERE statut='termine' GROUP BY mois ORDER BY mois DESC LIMIT 12"
             answer = "Recettes et passagers par mois :"
         intent = "financier"
 
@@ -721,7 +721,7 @@ async def auto_fix_sql(original_sql: str, error_msg: str, question: str) -> str 
             "role": "system",
             "content": (
                 "Tu es un expert SQLite. Corrige la requête SQL ci-dessous qui a produit une erreur. "
-                "Utilise la syntaxe SQLite : CONCAT(prenom,' ',nom) pour concat, strftime('%Y-%m',col) pour dates, date('now') pour aujourd'hui. "
+                "Utilise la syntaxe SQLite : CONCAT(prenom,' ',nom) pour concat, DATE_FORMAT(col, '%Y-%m') pour dates, CURDATE() pour aujourd'hui. "
                 "Retourne UNIQUEMENT la requête SQL corrigée, sans explication, sans markdown."
             )
         },
