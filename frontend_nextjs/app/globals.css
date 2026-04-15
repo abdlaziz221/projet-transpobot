@@ -1466,42 +1466,127 @@ textarea:focus-visible {
   box-shadow: none;
 }
 
-/* ─── HAMBURGER BUTTON (mobile only) ─── */
-.mobile-menu-btn {
-  display: none !important;
-}
-@media (max-width: 768px) {
-  .mobile-menu-btn {
-    display: flex !important;
-  }
+/* ─── MOBILE RESPONSIVE ─────────────────────────────── */
+
+/* Bottom Navigation Bar */
+.mobile-bottom-nav {
+  display: none;
 }
 
-/* ─── MOBILE SIDEBAR RESPONSIVE ─── */
+.bottom-nav-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  padding: 6px 10px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: 12px;
+  min-width: 56px;
+  min-height: 48px;
+  position: relative;
+  transition: color 0.15s;
+  font-family: var(--font-sans);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.bottom-nav-btn.active {
+  color: var(--primary);
+}
+
+.bottom-nav-badge {
+  position: absolute;
+  top: 2px;
+  right: 6px;
+  min-width: 16px;
+  height: 16px;
+  background: var(--danger);
+  color: white;
+  border-radius: 8px;
+  font-size: 9px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+  border: 1.5px solid var(--surface);
+}
+
 @media (max-width: 768px) {
+  /* Show bottom nav */
+  .mobile-bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 62px;
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    z-index: 100;
+    padding: 0 4px env(safe-area-inset-bottom, 0);
+    justify-content: space-around;
+    align-items: center;
+    box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.08);
+  }
+
+  /* Push content above bottom nav */
   .main-content {
     margin-left: 0 !important;
+    padding-bottom: 70px;
   }
 
-  .sidebar-mobile-hidden {
-    transform: translateX(-100%);
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  /* Compact page header */
+  .page-header h1 {
+    font-size: 18px !important;
+  }
+  .page-header p {
+    font-size: 12px !important;
+    opacity: 0.75;
   }
 
-  .sidebar-mobile-open {
-    transform: translateX(0) !important;
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  /* Tables scroll horizontally */
+  table {
+    min-width: 600px;
+  }
+  .card, [class*="card"] {
+    overflow-x: auto;
   }
 
-  .sidebar-overlay {
-    display: block !important;
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.65);
-    z-index: 99;
-    backdrop-filter: blur(2px);
+  /* Larger tap targets in tables */
+  tbody td {
+    padding: var(--space-3) var(--space-3) !important;
+    font-size: 13px;
+  }
+
+  /* Hide desktop-only topbar elements */
+  .topbar-date {
+    display: none !important;
+  }
+  .topbar-search {
+    display: none !important;
+  }
+  .topbar-username {
+    display: none !important;
+  }
+  .mobile-menu-btn {
+    display: none !important;
+  }
+
+  /* Grid: single column on small screens */
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
   }
 }
 
+/* Keep sidebar overlay class but unused on mobile (Sidebar handles its own) */
 .sidebar-overlay {
   display: none;
 }

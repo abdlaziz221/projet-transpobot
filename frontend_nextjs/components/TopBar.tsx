@@ -68,11 +68,10 @@ export default function TopBar({ search, setSearch, onLogout, onMenuClick }: any
       )}
 
       {/* ── SEARCH ── */}
-      <div style={{
+      <div className="topbar-search" style={{
         position: 'relative',
         width: '280px',
         flexShrink: 0,
-        display: window?.innerWidth < 768 ? 'none' : 'block'
       }}>
         <span style={{
           position: 'absolute',
@@ -117,7 +116,7 @@ export default function TopBar({ search, setSearch, onLogout, onMenuClick }: any
       </div>
 
       {/* ── DATE ── */}
-      <div style={{
+      <div className="topbar-date" style={{
         fontSize: '12px',
         fontWeight: 600,
         color: 'var(--text-muted)',
@@ -126,7 +125,7 @@ export default function TopBar({ search, setSearch, onLogout, onMenuClick }: any
         border: '1px solid var(--border)',
         padding: '6px 12px',
         borderRadius: '20px',
-        display: window?.innerWidth < 640 ? 'none' : 'flex',
+        display: 'flex',
         alignItems: 'center',
         gap: '7px',
         whiteSpace: 'nowrap',
@@ -145,14 +144,14 @@ export default function TopBar({ search, setSearch, onLogout, onMenuClick }: any
         marginLeft: 'auto',
         display: 'flex',
         alignItems: 'center',
-        gap: window?.innerWidth < 640 ? '4px' : '8px'
+        gap: '8px',
       }}>
 
         {/* ── ICON BUTTONS ── */}
         <div style={{
           display: 'flex',
           gap: '4px',
-          paddingRight: window?.innerWidth < 640 ? '8px' : '12px',
+          paddingRight: '12px',
           borderRight: '1px solid var(--border)',
         }}>
           <TopBarIconBtn
@@ -179,19 +178,17 @@ export default function TopBar({ search, setSearch, onLogout, onMenuClick }: any
             {theme === 'light' ? <Moon size={17} /> : <Sun size={17} />}
           </TopBarIconBtn>
 
-          {window?.innerWidth >= 640 && (
-            <TopBarIconBtn
-              title="Paramètres"
-              onClick={() => toast.info('Paramètres', 'Configuration système')}
-            >
-              <Settings size={17} />
-            </TopBarIconBtn>
-          )}
+          <TopBarIconBtn
+            title="Paramètres"
+            onClick={() => toast.info('Paramètres', 'Configuration système')}
+          >
+            <Settings size={17} />
+          </TopBarIconBtn>
         </div>
 
         {/* ── USER PROFILE ── */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', paddingLeft: '4px' }}>
-          <div style={{ textAlign: 'right' }}>
+          <div className="topbar-username" style={{ textAlign: 'right' }}>
             <p style={{
               fontSize: '13px',
               fontWeight: 700,

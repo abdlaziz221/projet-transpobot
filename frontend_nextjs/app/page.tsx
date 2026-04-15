@@ -71,25 +71,18 @@ export default function Home() {
 
   return (
     <div className="app-container">
-        {/* Overlay mobile */}
-        {isMobile && isMobileSidebarOpen && (
-          <div
-            className="sidebar-overlay"
-            onClick={() => setIsMobileSidebarOpen(false)}
-          />
-        )}
-
         <Sidebar
             activePage={activePage}
             setActivePage={(page: string) => {
               setActivePage(page);
-              if (isMobile) setIsMobileSidebarOpen(false);
+              setIsMobileSidebarOpen(false);
             }}
             onLogout={handleLogout}
             incidentCount={globalStats?.incidents_ouverts || 0}
             isCollapsed={isSidebarCollapsed}
             toggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
             isMobileOpen={isMobileSidebarOpen}
+            onMenuToggle={() => setIsMobileSidebarOpen(!isMobileSidebarOpen)}
         />
 
         <main className="main-content" style={{
@@ -100,7 +93,7 @@ export default function Home() {
             search={globalSearch}
             setSearch={setGlobalSearch}
             onLogout={handleLogout}
-            onMenuClick={isMobile ? () => setIsMobileSidebarOpen(!isMobileSidebarOpen) : undefined}
+            onMenuClick={undefined}
           />
           
           <div className="page-container">
