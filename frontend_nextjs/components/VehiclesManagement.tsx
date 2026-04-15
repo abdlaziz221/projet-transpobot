@@ -284,7 +284,7 @@ export default function VehiclesManagement({ search, setSearch }: any) {
                             {[
                                 { label: 'Trajets Eff', val: viewVehicle.stats?.trajets_total || 0, color: 'var(--primary)', icon: <Layers size={14}/> },
                                 { label: 'Revenue Net', val: `${((viewVehicle.stats?.recette_totale || 0) / 1000).toFixed(0)}k`, color: 'var(--success)', icon: <Activity size={14}/> },
-                                { label: 'Saturation', val: `${viewVehicle.stats?.moy_passagers || 0} pax`, color: 'var(--info)', icon: <Users size={14}/> },
+                                { label: 'Saturation', val: `${viewVehicle.stats?.moy_passagers || 0} passagers`, color: 'var(--info)', icon: <Users size={14}/> },
                             ].map((s, idx) => (
                                 <Card key={idx} padding="md" style={{ textAlign: 'center', background: 'var(--bg-subtle)', border: 'none' }}>
                                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', color: s.color, marginBottom: '6px' }}>

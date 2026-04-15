@@ -345,7 +345,7 @@ export default function DriversManagement({ search, setSearch }: any) {
                             <StatBox label="Trajets" value={selectedDriver.stats.trips} icon={<Target size={18} />} color="var(--primary)" />
                             <StatBox label="Incidents" value={selectedDriver.stats.incidents} icon={<AlertTriangle size={18} />} color="var(--danger)" />
                             <StatBox label="Recettes" value={`${(selectedDriver.stats.revenue / 1000).toFixed(0)}k`} icon={<Coins size={18} />} color="var(--success)" />
-                            <StatBox label="Passagers" value={selectedDriver.stats.passengers} icon={<Users size={18} />} color="var(--info)" />
+                            <StatBox label="Passagers" value={selectedDriver.stats.passengers_30j ?? selectedDriver.stats.passengers} subtitle="30 derniers jours" icon={<Users size={18} />} color="var(--info)" />
                         </div>
                     </Section>
                 </div>
@@ -447,7 +447,7 @@ function InfoRow({ icon, label, value }: any) {
     )
 }
 
-function StatBox({ label, value, icon, color }: any) {
+function StatBox({ label, value, subtitle, icon, color }: any) {
     return (
         <Card style={{ padding: '20px', textAlign: 'center', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px' }}>
             <div style={{ color: color, background: `${color}15`, width: '36px', height: '36px', borderRadius: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -456,6 +456,7 @@ function StatBox({ label, value, icon, color }: any) {
             <div>
                 <p style={{ fontSize: '20px', fontWeight: 900, color: 'var(--text-main)', lineHeight: 1 }}>{value}</p>
                 <p style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 800, marginTop: '4px', letterSpacing: '0.05em' }}>{label}</p>
+                {subtitle && <p style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 500, marginTop: '2px' }}>{subtitle}</p>}
             </div>
         </Card>
     )

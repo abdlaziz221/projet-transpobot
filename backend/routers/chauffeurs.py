@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import Optional
+from datetime import datetime, timedelta
 
 try:
     from database import get_db
@@ -85,6 +86,16 @@ def get_chauffeur_detail(id: int, db: Session = Depends(get_db)):
         Trajet.statut == 'termine'
     ).first()
 
+    # Passagers sur les 30 derniers jours
+    thirty_days_ago = datetime.now() - timedelta(days=30)
+    passengers_30j = db.query(
+        func.coalesce(func.sum(Trajet.nb_passagers), 0)
+    ).filter(
+        Trajet.chauffeur_id == id,
+        Trajet.statut == 'termine',
+        Trajet.date_heure_depart >= thirty_days_ago
+    ).scalar() or 0
+
     incidents = db.query(func.count(Incident.id)).join(
         Trajet, Incident.trajet_id == Trajet.id
     ).filter(Trajet.chauffeur_id == id).scalar() or 0
@@ -135,6 +146,7 @@ def get_chauffeur_detail(id: int, db: Session = Depends(get_db)):
             "trips": stats.total_trips or 0,
             "revenue": float(stats.total_revenue or 0),
             "passengers": int(stats.total_passengers or 0),
+            "passengers_30j": int(passengers_30j),
             "avg_passengers": round(float(stats.avg_passengers or 0), 1),
             "incidents": incidents,
             "incidents_graves": incidents_graves,
