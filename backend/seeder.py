@@ -149,30 +149,22 @@ def seed_all():
                     effectuee=True
                 ))
 
-        # 8b. TRAJETS EN COURS (toujours maintenu à jour)
-        active_count = session.query(Trajet).filter(Trajet.statut == "en_cours").count()
-        if active_count < 5:
-            print("[LIVE] Injection de trajets en_cours pour la carte temps réel...")
-            all_lignes = session.query(Ligne).all()
-            all_vehicules = session.query(Vehicule).filter(Vehicule.statut == "actif").all()
-            all_chauffeurs = session.query(Chauffeur).filter(Chauffeur.disponibilite == True).all()
-            if all_lignes and all_vehicules and all_chauffeurs:
-                selected = random.sample(all_lignes, min(8, len(all_lignes)))
-                for l in selected:
-                    depart = datetime.datetime.now() - datetime.timedelta(minutes=random.randint(10, 90))
-                    arrivee = depart + datetime.timedelta(minutes=l.duree_minutes)
-                    session.add(Trajet(
-                        ligne_id=l.id,
-                        chauffeur_id=random.choice(all_chauffeurs).id,
-                        vehicule_id=random.choice(all_vehicules).id,
-                        date_heure_depart=depart,
-                        date_heure_arrivee=arrivee,
-                        statut="en_cours",
-                        nb_passagers=random.randint(15, 65),
-                        recette=random.randint(20000, 120000),
-                    ))
-                session.commit()
-                print(f"[LIVE] {len(selected)} trajets en_cours créés.")
+        # 8b. SYNC disponibilite des chauffeurs selon trajets actifs
+        print("[SYNC] Mise à jour disponibilite chauffeurs selon trajets en_cours...")
+        # Chauffeurs avec un trajet actif → indisponible
+        active_chauffeur_ids = [
+            row[0] for row in session.query(Trajet.chauffeur_id)
+            .filter(Trajet.statut == "en_cours").distinct().all()
+        ]
+        session.query(Chauffeur).filter(Chauffeur.id.in_(active_chauffeur_ids)).update(
+            {"disponibilite": False}, synchronize_session=False
+        )
+        # Chauffeurs sans trajet actif → disponible
+        session.query(Chauffeur).filter(~Chauffeur.id.in_(active_chauffeur_ids)).update(
+            {"disponibilite": True}, synchronize_session=False
+        )
+        session.commit()
+        print(f"[SYNC] {len(active_chauffeur_ids)} chauffeur(s) marqué(s) indisponible(s).")
 
         # 9. AFFECTATIONS
         if session.query(Affectation).count() == 0:

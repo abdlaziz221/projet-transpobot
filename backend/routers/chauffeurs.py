@@ -33,6 +33,13 @@ def get_chauffeurs(dispo: Optional[bool] = Query(None), db: Session = Depends(ge
             Affectation.date_fin == None
         ).first()
 
+        # Disponibilité dynamique : indisponible si trajet en cours
+        has_active_trip = db.query(Trajet).filter(
+            Trajet.chauffeur_id == c.id,
+            Trajet.statut == 'en_cours'
+        ).first() is not None
+        disponibilite_reelle = not has_active_trip
+
         # Nombre de trajets total
         nb_trajets = db.query(func.count(Trajet.id)).filter(
             Trajet.chauffeur_id == c.id
@@ -50,8 +57,8 @@ def get_chauffeurs(dispo: Optional[bool] = Query(None), db: Session = Depends(ge
             "telephone": c.telephone,
             "licence": c.numero_permis,
             "categorie_permis": c.categorie_permis,
-            "disponibilite": c.disponibilite,
             "date_embauche": c.date_embauche.isoformat() if c.date_embauche else None,
+            "disponibilite": disponibilite_reelle,
             "vehicule_actuel": v[0] if v else "Non assigné",
             "type_vehicule": v[1] if v else None,
             "nb_trajets": nb_trajets,
