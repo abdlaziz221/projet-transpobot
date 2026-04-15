@@ -1,0 +1,24 @@
+# ─────────────────────────────────────────────────────────────
+#  TranspoBot — Configuration Railway
+#  Ce fichier configure le service BACKEND sur Railway.
+#
+#  Procédure complète :
+#  1. railway.app → New Project → Deploy from GitHub repo
+#  2. Ce service = backend (Dockerfile: backend/Dockerfile)
+#  3. Ajouter un 2e service → racine: frontend_nextjs
+#  4. Ajouter les variables d'env dans Railway Dashboard (voir .env.prod)
+# ─────────────────────────────────────────────────────────────
+
+[build]
+builder        = "DOCKERFILE"
+dockerfilePath = "backend/Dockerfile"
+
+[deploy]
+startCommand        = "gunicorn app:app --workers 2 --worker-class uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT --timeout 120"
+healthcheckPath     = "/health"
+healthcheckTimeout  = 300
+restartPolicyType   = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+
+[[volumes]]
+mountPath = "/app"

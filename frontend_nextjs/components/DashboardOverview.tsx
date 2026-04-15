@@ -24,7 +24,8 @@ export default function DashboardOverview({ setActivePage }: any) {
     const [vehicleStatus, setVehicleStatus] = useState<any[]>([]);
     const [revenueByLine, setRevenueByLine] = useState<any[]>([]);
     const [maintenanceAlerts, setMaintenanceAlerts] = useState<any[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [loadingStats, setLoadingStats] = useState(true);
+    const [loadingCharts, setLoadingCharts] = useState(true);
     const [chartsReady, setChartsReady] = useState(false);
 
     useEffect(() => {
@@ -37,28 +38,36 @@ export default function DashboardOverview({ setActivePage }: any) {
     }, []);
 
     async function loadDashboard() {
+        // Phase 1 : KPI cards — requête légère, s'affiche en < 200 ms
         try {
-            const [sRes, wRes, vRes, rRes, mRes] = await Promise.all([
-                fetchWithAuth('/stats'),
+            const sRes = await fetchWithAuth('/stats');
+            if (sRes.ok) setStats(await sRes.json());
+        } catch (err) {
+            console.error("Stats load failed", err);
+        } finally {
+            setLoadingStats(false);
+        }
+
+        // Phase 2 : graphiques — chargées en arrière-plan après les cartes
+        try {
+            const [wRes, vRes, rRes, mRes] = await Promise.all([
                 fetchWithAuth('/stats/weekly-performance'),
                 fetchWithAuth('/stats/vehicle-status'),
                 fetchWithAuth('/stats/revenue-by-line'),
                 fetchWithAuth('/stats/maintenance-alerts'),
             ]);
-
-            if (sRes.ok) setStats(await sRes.json());
             if (wRes.ok) setWeeklyData(await wRes.json());
             if (vRes.ok) setVehicleStatus(await vRes.json());
             if (rRes.ok) setRevenueByLine(await rRes.json());
             if (mRes.ok) setMaintenanceAlerts(await mRes.json());
         } catch (err) {
-            console.error("Dashboard load failed", err);
+            console.error("Charts load failed", err);
         } finally {
-            setLoading(false);
+            setLoadingCharts(false);
         }
     }
 
-    if (loading) return (
+    if (loadingStats) return (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '20px' }}>
             {[1, 2, 3, 4, 5, 6].map(i => (
                 <Card key={i} padding="md">
@@ -191,7 +200,6 @@ export default function DashboardOverview({ setActivePage }: any) {
                 <KPICard
                     title="Véhicules Actifs"
                     value={stats?.vehicules_actifs ?? 0}
-                    total={(stats?.vehicules_actifs ?? 0) + (vehicleStatus.reduce((s: number, v: any) => v.statut !== 'actif' ? s + v.nb : s, 0))}
                     icon={<Bus size={22} />}
                     color="var(--primary)"
                     sparkData={[12, 14, 13, 15, 12, 16, 14]}
@@ -200,7 +208,6 @@ export default function DashboardOverview({ setActivePage }: any) {
                 <KPICard
                     title="Chauffeurs Libres"
                     value={stats?.chauffeurs_disponibles ?? 0}
-                    total={15}
                     icon={<Users size={22} />}
                     color="var(--success)"
                     sparkData={[8, 10, 9, 11, 7, 10, 12]}
@@ -230,18 +237,20 @@ export default function DashboardOverview({ setActivePage }: any) {
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: '24px' }}>
                 
                 {/* PERFORMANCE LINE CHART */}
-                <Card 
-                    title="Activité de la Flotte" 
+                <Card
+                    title="Activité de la Flotte"
                     subtitle="Évolution du volume de trajets hebdomadaires"
                     extra={<Badge variant="primary">Temps Réel</Badge>}
                 >
                     <div style={{ height: '300px', marginTop: '12px' }}>
-                        {chartsReady && weeklyData.length > 0 ? (
+                        {loadingCharts ? (
+                            <Skeleton height="100%" width="100%" style={{ borderRadius: '8px' }} />
+                        ) : chartsReady && weeklyData.length > 0 ? (
                             <Line data={lineData} options={chartOptions} />
                         ) : (
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--text-muted)' }}>
                                 <Map size={48} style={{ opacity: 0.1, marginBottom: '12px' }} />
-                                <p>Collecte des données en cours...</p>
+                                <p>Aucune donnée disponible</p>
                             </div>
                         )}
                     </div>
@@ -250,13 +259,15 @@ export default function DashboardOverview({ setActivePage }: any) {
                 {/* STATUS DOUGHNUT */}
                 <Card title="État Opérationnel" subtitle="Répartition globale du parc">
                     <div style={{ height: '200px', margin: '20px 0', display: 'flex', justifyContent: 'center' }}>
-                        {chartsReady && vehicleStatus.length > 0 && (
-                            <Doughnut data={doughnutData} options={{ 
-                                maintainAspectRatio: false, 
+                        {loadingCharts ? (
+                            <Skeleton variant="circle" height="180px" width="180px" />
+                        ) : chartsReady && vehicleStatus.length > 0 ? (
+                            <Doughnut data={doughnutData} options={{
+                                maintainAspectRatio: false,
                                 cutout: '75%',
                                 plugins: { legend: { display: false } }
                             }} />
-                        )}
+                        ) : null}
                     </div>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                         {vehicleStatus.map((v: any) => (
@@ -278,9 +289,11 @@ export default function DashboardOverview({ setActivePage }: any) {
                 {/* BAR CHART */}
                 <Card title="Recettes par Ligne">
                     <div style={{ height: '280px', marginTop: '12px' }}>
-                        {chartsReady && (
+                        {loadingCharts ? (
+                            <Skeleton height="100%" width="100%" style={{ borderRadius: '8px' }} />
+                        ) : chartsReady ? (
                             <Bar data={barData} options={chartOptions} />
-                        )}
+                        ) : null}
                     </div>
                 </Card>
 
@@ -350,11 +363,6 @@ function KPICard({ title, value, subtitle, total, icon, color, sparkData, onClic
                     <span style={{ fontSize: '28px', fontWeight: 800, letterSpacing: '-0.03em', color: 'var(--text-main)' }}>
                         {value}
                     </span>
-                    {total && (
-                        <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--text-muted)' }}>
-                            / {total}
-                        </span>
-                    )}
                     {subtitle && (
                         <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--text-muted)', background: 'var(--bg-subtle)', padding: '2px 6px', borderRadius: '4px' }}>
                             {subtitle}

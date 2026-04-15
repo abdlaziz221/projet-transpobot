@@ -288,7 +288,6 @@ export default function IncidentsManagement({ search, setSearch }: any) {
             }}>
                 <IncKPI label="Total Incidents" value={incidents.length} icon={<AlertTriangle />} color="var(--text-muted)" />
                 <IncKPI label="Niveau Critique" value={stats?.incidents_graves || 0} icon={<ShieldAlert />} color="var(--danger)" />
-                <IncKPI label="Dossiers Ouverts" value={stats?.incidents_ouverts || 0} icon={<Clock />} color="var(--warning)" />
                 <IncKPI label="Résolus / Archivés" value={incidents.filter(i => i.resolu).length} icon={<CheckCircle2 />} color="var(--success)" />
             </div>
 
@@ -330,7 +329,7 @@ export default function IncidentsManagement({ search, setSearch }: any) {
                                         <span style={{ fontSize: '12px', color: 'var(--text-muted)' }}>
                                             {selectedIncidents.length} sélectionné(s)
                                         </span>
-                                        <Button variant="success" size="sm" onClick={resolveSelectedIncidents}>
+                                        <Button variant="outline" size="sm" onClick={resolveSelectedIncidents}>
                                             <Check size={14} /> Résoudre
                                         </Button>
                                         <Button variant="ghost" size="sm" onClick={deselectAllIncidents}>
@@ -392,34 +391,34 @@ export default function IncidentsManagement({ search, setSearch }: any) {
                     </Card>
 
                     <Card>
-                        <h3 style={{ fontSize: '14px', fontWeight: 700, marginBottom: '20px' }}>Analyse par Typologie</h3>
+                        <h3 style={{ fontSize: '14px', fontWeight: 700, marginBottom: '4px' }}>Répartition par type</h3>
+                        <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginBottom: '20px' }}>{incidents.length} incidents au total</p>
                         {incidentsByType.length > 0 ? (
-                            <div style={{ height: '200px', width: '100%', position: 'relative' }}>
-                                <Doughnut 
-                                    data={doughnutData} 
-                                    options={{ 
-                                        maintainAspectRatio: false, 
-                                        plugins: { 
-                                            legend: { 
-                                                position: 'bottom' as const, 
-                                                labels: { 
-                                                    boxWidth: 8, 
-                                                    usePointStyle: true,
-                                                    padding: 15,
-                                                    font: { size: 11, weight: '600' } as any
-                                                } 
-                                            } 
-                                        }, 
-                                        cutout: '75%' 
-                                    }} 
-                                />
-                                <div style={{ position: 'absolute', top: '44%', left: '50%', transform: 'translate(-50%, -50%)', textAlign: 'center', pointerEvents: 'none' }}>
-                                    <p style={{ fontSize: '20px', fontWeight: 800 }}>{incidents.length}</p>
-                                    <p style={{ fontSize: '10px', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 700 }}>Total</p>
-                                </div>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                                {incidentsByType.map((t: any) => {
+                                    const pct = Math.round((t.nb / incidents.length) * 100);
+                                    const color = typeColors[t.type] || '#64748b';
+                                    return (
+                                        <div key={t.type}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <div style={{ width: '10px', height: '10px', borderRadius: '3px', background: color, flexShrink: 0 }} />
+                                                    <span style={{ fontSize: '13px', fontWeight: 700, color: 'var(--text-main)' }}>{t.type}</span>
+                                                </div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                                    <span style={{ fontSize: '13px', fontWeight: 800, color: 'var(--text-main)' }}>{t.nb}</span>
+                                                    <span style={{ fontSize: '11px', color: 'var(--text-muted)', fontWeight: 600, minWidth: '32px', textAlign: 'right' }}>{pct}%</span>
+                                                </div>
+                                            </div>
+                                            <div style={{ height: '6px', background: 'var(--bg-subtle)', borderRadius: '10px', overflow: 'hidden' }}>
+                                                <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: '10px', transition: 'width 0.6s ease' }} />
+                                            </div>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         ) : (
-                            <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '12px' }}>Données insuffisantes</p>
+                            <p style={{ textAlign: 'center', color: 'var(--text-muted)', fontSize: '12px', padding: '20px 0' }}>Aucun incident enregistré</p>
                         )}
                     </Card>
                 </div>

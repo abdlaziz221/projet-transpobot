@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react';
-import { 
+import React, { useEffect, useState, useRef } from 'react';
+import {
   Users, Search, Mail, Phone, Calendar, CreditCard,
   Target, AlertTriangle, Coins, UserCheck, Plus, Trash2,
-  FileSpreadsheet, Edit3, ChevronRight, User, MoreVertical, ShieldCheck
+  FileSpreadsheet, Edit3, ChevronRight, User, MoreVertical, ShieldCheck, Camera
 } from 'lucide-react';
-import { fetchWithAuth } from '../lib/api';
+import { fetchWithAuth, BASE_URL } from '../lib/api';
 import { exportToExcel } from '../lib/excelUtils';
 import Modal from './Modal';
 import { Card, Button, Input, Badge, Skeleton } from './ui';
@@ -17,6 +17,8 @@ export default function DriversManagement({ search, setSearch }: any) {
   const [detailLoading, setDetailLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const toast = useToast();
 
   const [formData, setFormData] = useState({
@@ -102,6 +104,34 @@ export default function DriversManagement({ search, setSearch }: any) {
     setIsEditOpen(true);
   }
 
+  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !selectedDriver) return;
+    setUploadingPhoto(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetchWithAuth(`/chauffeurs_custom/${selectedDriver.chauffeur.id}/photo`, {
+        method: 'POST',
+        body: fd,
+      });
+      if (res.ok) {
+        const d = await res.json();
+        // Refresh detail to get new photo_url
+        setSelectedDriver((prev: any) => ({
+          ...prev,
+          chauffeur: { ...prev.chauffeur, photo_url: d.photo_url }
+        }));
+        toast.success('Photo ajoutée', 'Photo du chauffeur mise à jour.');
+      } else {
+        toast.error('Erreur', "L'upload a échoué.");
+      }
+    } finally {
+      setUploadingPhoto(false);
+      if (photoInputRef.current) photoInputRef.current.value = '';
+    }
+  }
+
   const filtered = drivers.filter(d => 
     `${d.prenom} ${d.nom}`.toLowerCase().includes(search.toLowerCase())
   );
@@ -157,14 +187,17 @@ export default function DriversManagement({ search, setSearch }: any) {
                         className="driver-card-hover"
                     >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                            <div style={{ 
-                                width: '44px', height: '44px', borderRadius: '12px', 
+                            <div style={{
+                                width: '44px', height: '44px', borderRadius: '12px',
                                 background: selectedDriver?.chauffeur?.id === d.id ? 'var(--primary)' : 'var(--bg-subtle)',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', 
-                                color: selectedDriver?.chauffeur?.id === d.id ? 'white' : 'var(--primary)', 
-                                fontWeight: 800, fontSize: '14px'
+                                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                color: selectedDriver?.chauffeur?.id === d.id ? 'white' : 'var(--primary)',
+                                fontWeight: 800, fontSize: '14px', overflow: 'hidden', flexShrink: 0,
                             }}>
-                                {d.prenom[0]}{d.nom[0]}
+                                {d.photo_url
+                                    ? <img src={`${BASE_URL.replace('/api', '')}${d.photo_url}`} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                    : <span>{d.prenom[0]}{d.nom[0]}</span>
+                                }
                             </div>
                             <div>
                                 <p style={{ fontWeight: 700, fontSize: '14px', color: 'var(--text-main)' }}>{d.prenom} {d.nom}</p>
@@ -203,41 +236,101 @@ export default function DriversManagement({ search, setSearch }: any) {
             </Card>
         ) : selectedDriver ? (
           <Card padding="none" style={{ overflow: 'hidden' }}>
-            <div style={{ 
-                height: '100px', background: 'var(--gradient-primary)', position: 'relative'
-             }} />
-            <div style={{ padding: '0 30px 30px', marginTop: '-50px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '20px' }}>
-                    <div style={{ 
-                        width: '100px', height: '100px', borderRadius: '28px', 
-                        background: 'var(--bg-card)', padding: '6px', boxShadow: 'var(--shadow-lg)'
-                    }}>
-                        <div style={{ 
-                            width: '100%', height: '100%', borderRadius: '22px', 
-                            background: 'var(--bg-subtle)', display: 'flex', alignItems: 'center', justifyContent: 'center',
-                            fontSize: '32px', fontWeight: 900, color: 'var(--primary)'
+            {/* Hidden file input */}
+            <input
+                ref={photoInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                style={{ display: 'none' }}
+                onChange={handlePhotoUpload}
+            />
+
+            {/* Header row: avatar + name + actions */}
+            <div style={{ padding: '24px 24px 20px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: '18px' }}>
+                {/* Clickable avatar */}
+                <div style={{ position: 'relative', flexShrink: 0 }}>
+                    <div
+                        onClick={() => photoInputRef.current?.click()}
+                        title="Cliquer pour changer la photo"
+                        className="photo-avatar"
+                        style={{
+                            width: '80px', height: '80px', borderRadius: '20px',
+                            overflow: 'hidden', cursor: 'pointer',
+                            border: '3px solid var(--border)',
+                            position: 'relative',
+                        }}
+                    >
+                        {selectedDriver.chauffeur.photo_url ? (
+                            <img
+                                src={`${BASE_URL.replace('/api', '')}${selectedDriver.chauffeur.photo_url}`}
+                                alt="Photo"
+                                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            />
+                        ) : (
+                            <div style={{
+                                width: '100%', height: '100%',
+                                background: 'var(--primary-light)', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                                fontSize: '26px', fontWeight: 900, color: 'var(--primary)'
+                            }}>
+                                {selectedDriver.chauffeur.prenom[0]}{selectedDriver.chauffeur.nom[0]}
+                            </div>
+                        )}
+                        {/* Dark overlay on hover */}
+                        <div className="photo-overlay" style={{
+                            position: 'absolute', inset: 0,
+                            background: 'rgba(0,0,0,0.45)',
+                            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '4px',
+                            opacity: 0, transition: 'opacity 0.2s',
                         }}>
-                             {selectedDriver.chauffeur.prenom[0]}{selectedDriver.chauffeur.nom[0]}
+                            <Camera size={20} color="white" />
+                            <span style={{ fontSize: '9px', color: 'white', fontWeight: 700, textAlign: 'center', lineHeight: 1.2 }}>
+                                {uploadingPhoto ? 'Envoi...' : 'Modifier'}
+                            </span>
                         </div>
                     </div>
-                    <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
-                        <Button variant="outline" size="sm" onClick={openEdit}>
-                            <Edit3 size={16} />
-                        </Button>
-                        <Button variant="outline" size="sm" onClick={() => handleDelete(selectedDriver.chauffeur.id)} style={{ color: 'var(--danger)', borderColor: 'rgba(239, 68, 68, 0.2)' }}>
-                            <Trash2 size={16} />
-                        </Button>
+                    {/* Small camera badge always visible */}
+                    <div style={{
+                        position: 'absolute', bottom: '-4px', right: '-4px',
+                        width: '22px', height: '22px', borderRadius: '50%',
+                        background: 'var(--primary)',
+                        display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        boxShadow: '0 2px 6px rgba(0,0,0,0.2)',
+                        border: '2px solid var(--bg-card)',
+                        cursor: 'pointer',
+                        pointerEvents: 'none',
+                    }}>
+                        <Camera size={10} color="white" />
                     </div>
                 </div>
 
-                <div style={{ marginBottom: '30px' }}>
-                    <h2 style={{ fontSize: '24px', fontWeight: 900, color: 'var(--text-main)', letterSpacing: '-0.03em', lineHeight: 1 }}>
+                {/* Name + permis */}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                    <h2 style={{ fontSize: '20px', fontWeight: 900, color: 'var(--text-main)', letterSpacing: '-0.02em', lineHeight: 1.2 }}>
                         {selectedDriver.chauffeur.prenom} {selectedDriver.chauffeur.nom}
                     </h2>
-                    <p style={{ fontSize: '13px', color: 'var(--text-muted)', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <ShieldCheck size={14} color="var(--success)" /> Matricule Certifié — {selectedDriver.chauffeur.numero_permis}
+                    <p style={{ fontSize: '12px', color: 'var(--text-muted)', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        <ShieldCheck size={13} color="var(--success)" /> {selectedDriver.chauffeur.numero_permis}
+                    </p>
+                    <p
+                        onClick={() => photoInputRef.current?.click()}
+                        style={{ fontSize: '11px', color: 'var(--primary)', marginTop: '6px', cursor: 'pointer', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '4px' }}
+                    >
+                        <Camera size={11} /> {selectedDriver.chauffeur.photo_url ? 'Changer la photo' : 'Ajouter une photo'}
                     </p>
                 </div>
+
+                {/* Edit / Delete */}
+                <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                    <Button variant="outline" size="sm" onClick={openEdit}>
+                        <Edit3 size={16} />
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => handleDelete(selectedDriver.chauffeur.id)} style={{ color: 'var(--danger)', borderColor: 'rgba(239, 68, 68, 0.2)' }}>
+                        <Trash2 size={16} />
+                    </Button>
+                </div>
+            </div>
+
+            <div style={{ padding: '24px 24px 28px' }}>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                     <Section title="Informations Professionnelles">

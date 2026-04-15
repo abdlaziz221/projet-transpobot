@@ -152,41 +152,131 @@
   --z-modal: 1001;
   --z-toast: 1100;
   --z-tooltip: 1200;
+
+  /* ─── SEMANTIC UI VARIABLES (dark defaults) ─── */
+  /* Surfaces semi-transparentes / overlays */
+  --overlay-bg:           rgba(255,255,255,0.04);
+  --overlay-bg-hover:     rgba(255,255,255,0.08);
+  --overlay-border:       rgba(255,255,255,0.07);
+  --overlay-border-hover: rgba(255,255,255,0.13);
+  --subtle-border:        rgba(255,255,255,0.05);
+
+  /* Navigation items */
+  --nav-text:       rgba(255,255,255,0.48);
+  --nav-text-hover: rgba(255,255,255,0.85);
+  --nav-bg-hover:   rgba(255,255,255,0.05);
+
+  /* Icônes et petits boutons */
+  --icon-color:       rgba(255,255,255,0.45);
+  --icon-color-hover: rgba(255,255,255,0.9);
+
+  /* Texte sombre/discret */
+  --muted-strong: rgba(255,255,255,0.32);
 }
 
-/* ─── LIGHT THEME OVERRIDE (optionnel) ─── */
+/* ─── LIGHT THEME ─── */
 [data-theme="light"] {
-  --bg:              #f8fafc;
-  --bg-subtle:       #f1f5f9;
+  --bg:              #f1f5f9;
+  --bg-subtle:       #e8eef5;
   --surface:         #ffffff;
   --surface-elevated:#ffffff;
-  --border:          #e2e8f0;
-  --border-strong:   #cbd5e1;
-  --border-focus:    rgba(37, 99, 235, 0.5);
+  --border:          #d1dbe8;
+  --border-strong:   #b0bec9;
+  --border-focus:    rgba(196,88,30,0.5);
   --text-main:      #0f172a;
-  --text-secondary: #334155;
-  --text-muted:     #64748b;
+  --text-secondary: #1e293b;
+  --text-muted:     #475569;
   --text-subtle:    #94a3b8;
-  --primary-50:  #eff6ff;
-  --primary-100: #dbeafe;
-  --primary-500: #3b82f6;
-  --primary-600: #2563eb;
-  --primary-700: #1d4ed8;
-  --primary:       var(--primary-600);
-  --primary-light: var(--primary-50);
-  --primary-dark:  var(--primary-700);
-  --gradient-primary: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
-  --gradient-surface: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  --shadow-xs:  0 1px 2px rgba(0,0,0,0.05);
-  --shadow-sm:  0 1px 3px rgba(0,0,0,0.1);
-  --shadow-md:  0 4px 6px rgba(0,0,0,0.1);
-  --shadow-glow: 0 0 20px rgba(37,99,235,0.3);
-  --success-50:  #f0fdf4; --success-100: #dcfce7; --success-700: #047857;
-  --warning-50:  #fffbeb; --warning-100: #fef3c7; --warning-700: #b45309;
-  --danger-50:   #fef2f2; --danger-100:  #fee2e2; --danger-700: #b91c1c;
-  --info-50:     #f0f9ff; --info-100:    #e0f2fe; --info-600:   #0284c7;
-  --purple-50:   #f5f3ff; --purple-100:  #ede9fe; --purple-600: #6d28d9;
+
+  /* Primary garde les couleurs terracotta en light aussi */
+  --primary:        #c4581e;
+  --primary-light:  rgba(196,88,30,0.08);
+  --primary-dark:   #a84818;
+  --primary-50:     rgba(196,88,30,0.07);
+  --primary-100:    rgba(196,88,30,0.14);
+  --primary-200:    rgba(196,88,30,0.25);
+  --primary-300:    #e07b3a;
+  --primary-500:    #c4581e;
+  --primary-600:    #c4581e;
+  --primary-700:    #a84818;
+
+  --gradient-primary: linear-gradient(135deg, #c4581e 0%, #e07b3a 100%);
+  --gradient-surface: linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%);
+
+  --shadow-xs:  0 1px 3px rgba(0,0,0,0.08);
+  --shadow-sm:  0 2px 6px rgba(0,0,0,0.1);
+  --shadow-md:  0 4px 12px rgba(0,0,0,0.12);
+  --shadow-lg:  0 8px 24px rgba(0,0,0,0.13);
+  --shadow-xl:  0 16px 40px rgba(0,0,0,0.15);
+  --shadow-glow: 0 0 20px rgba(196,88,30,0.25);
+  --shadow-glow-success: 0 0 16px rgba(16,185,129,0.2);
+
+  --success-50:  #f0fdf4; --success-100: #dcfce7; --success-500: #059669; --success-700: #047857;
+  --warning-50:  #fffbeb; --warning-100: #fef3c7; --warning-500: #d97706; --warning-700: #b45309;
+  --danger-50:   #fef2f2; --danger-100:  #fee2e2; --danger-500:  #dc2626; --danger-700: #b91c1c;
+  --info-50:     #f0f9ff; --info-100:    #e0f2fe; --info-500:    #0284c7; --info-600:   #0284c7;
+  --purple-50:   #f5f3ff; --purple-100:  #ede9fe; --purple-500:  #6d28d9; --purple-600: #6d28d9;
+
+  /* ─── SEMANTIC UI VARIABLES (light overrides) ─── */
+  --overlay-bg:           rgba(0,0,0,0.04);
+  --overlay-bg-hover:     rgba(0,0,0,0.07);
+  --overlay-border:       rgba(0,0,0,0.1);
+  --overlay-border-hover: rgba(0,0,0,0.18);
+  --subtle-border:        rgba(0,0,0,0.07);
+
+  --nav-text:       #64748b;
+  --nav-text-hover: #0f172a;
+  --nav-bg-hover:   rgba(0,0,0,0.05);
+
+  --icon-color:       #64748b;
+  --icon-color-hover: #0f172a;
+
+  --muted-strong: #94a3b8;
 }
+
+/* ─── UI CLASSES THÉMÉES (hover via CSS, pas JS) ─── */
+
+/* Petit bouton icône (sidebar collapse, topbar icons) */
+.icon-btn {
+  background: var(--overlay-bg);
+  border: 1px solid var(--overlay-border);
+  color: var(--icon-color);
+  transition: background 0.2s, color 0.2s, border-color 0.2s;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.icon-btn:hover {
+  background: var(--overlay-bg-hover) !important;
+  color: var(--icon-color-hover) !important;
+  border-color: var(--overlay-border-hover) !important;
+}
+
+/* Item de navigation sidebar */
+.nav-item {
+  color: var(--nav-text);
+  background: transparent;
+  transition: background 0.15s, color 0.15s;
+  border-left: 2px solid transparent;
+}
+.nav-item:hover {
+  background: var(--nav-bg-hover) !important;
+  color: var(--nav-text-hover) !important;
+}
+.nav-item.active {
+  background: rgba(196,88,30,0.12) !important;
+  color: #e07b3a !important;
+  border-left-color: #c4581e !important;
+  font-weight: 700;
+}
+[data-theme="light"] .nav-item.active {
+  background: rgba(196,88,30,0.1) !important;
+}
+
+/* Textes discrets dans sidebar */
+.sidebar-subtle { color: var(--muted-strong); }
+.sidebar-title  { color: var(--text-main); }
 
 /* ─── Base Resets ─── */
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -898,6 +988,11 @@ label {
   0%, 100% { transform: rotate(0); }
   25% { transform: rotate(-3deg); }
   75% { transform: rotate(3deg); }
+}
+
+/* Photo avatar hover overlay */
+.photo-avatar:hover .photo-overlay {
+  opacity: 1 !important;
 }
 
 /* Animation Classes */

@@ -1,0 +1,57 @@
+# ─────────────────────────────────────────────────────────────
+#  TranspoBot — Docker Compose PRODUCTION
+#  Usage : docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --build
+#  LLM : Groq API (cloud, pas besoin d'Ollama)
+#  DB  : SQLite (fichier persistant via volume Docker)
+# ─────────────────────────────────────────────────────────────
+
+services:
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: transpobot_backend
+    restart: always
+    env_file: .env.prod
+    environment:
+      ENVIRONMENT: production
+    ports:
+      - "8000:8000"
+    volumes:
+      - db_data:/app
+    networks:
+      - transpobot_network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  frontend:
+    build:
+      context: ./frontend_nextjs
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+    container_name: transpobot_frontend
+    restart: always
+    depends_on:
+      backend:
+        condition: service_healthy
+    env_file: .env.prod
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL}
+    ports:
+      - "3000:3000"
+    networks:
+      - transpobot_network
+
+volumes:
+  db_data:
+
+networks:
+  transpobot_network:
+    driver: bridge
