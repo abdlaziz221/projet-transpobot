@@ -84,13 +84,76 @@ Q:véhicules en maintenance→{"sql":"SELECT v.immatriculation,v.type,m.type AS 
 Q:taux occupation lignes→{"sql":"SELECT l.nom,ROUND(AVG(t.nb_passagers*100.0/v.capacite),1) AS taux_pct FROM trajets t JOIN vehicules v ON t.vehicule_id=v.id JOIN lignes l ON t.ligne_id=l.id WHERE t.statut='termine' AND v.capacite>0 GROUP BY l.id ORDER BY taux_pct DESC","answer":"Taux d'occupation:","intent":"statistique"}"""
 
 # ─────────────────────────────────────────────
-# DÉTECTION D'INTENTION  (questions sans SQL nécessaire)
+# NORMALISATION  (accents + alias métier)
+# ─────────────────────────────────────────────
+def _normalize(text: str) -> str:
+    """Supprime les accents pour comparaison robuste."""
+    replacements = str.maketrans("éèêëàâùûüîïôçœæÉÈÊËÀÂÙÛÜÎÏÔÇ", "eeeeeauuuiiocoeEEEEAAUUUIIOC")
+    return text.translate(replacements)
+
+# Synonymes → terme canonique (appliqué avant tout matching)
+_ALIASES = {
+    # Chauffeur
+    r"\b(conducteur|pilote|chauffeur[s]?|driver|personnel)\b": "chauffeur",
+    # Véhicule
+    r"\b(bus|autobus|minibus|camion|autocar|car|vehicle|vehicule[s]?)\b": "vehicule",
+    # Incident
+    r"\b(accident|panne|avarie|probleme|alerte|anomalie|sinistre)\b": "incident",
+    # Recette
+    r"\b(benefice|profit|argent|revenu|chiffre|gain|ca\b|billet[s]?)\b": "recette",
+    # Ligne
+    r"\b(route|itineraire|circuit|parcours|axe|liaison)\b": "ligne",
+    # Maintenance
+    r"\b(reparation|entretien|revision|service|garage)\b": "maintenance",
+    # Passagers
+    r"\b(client[s]?|voyageur[s]?|usager[s]?|gens)\b": "passager",
+    # Intentions chiffres
+    r"\b(y'?a.{0,4}combien|il.{0,4}(y.{0,2})?a.{0,4}combien|c'est.{0,4}combien|dis.moi.{0,5}combien)\b": "combien",
+    r"\b(montre.moi|donne.moi|affiche|liste.moi|voir|montrer|afficher)\b": "liste",
+    r"\b(chiffre[s]?|stat[s]?|statistique[s]?|kpi|resume|bilan|rapport|overview)\b": "stat",
+    r"\b(aujourd'?hui|ce.jour|journee)\b": "aujourd",
+    r"\b(ce.?mois|mois.en.cours|mensuel)\b": "mois",
+    r"\b(cette.?semaine|semaine.en.cours|hebdo)\b": "semaine",
+}
+
+def _expand_question(q: str) -> str:
+    """Normalise accents + remplace les alias par les termes canoniques."""
+    qn = _normalize(q.lower())
+    for pattern, replacement in _ALIASES.items():
+        qn = re.sub(pattern, replacement, qn)
+    return qn
+
+
+# ─────────────────────────────────────────────
+# DÉTECTION HORS CONTEXTE
+# ─────────────────────────────────────────────
+_OUT_OF_CONTEXT_PATTERNS = re.compile(
+    r"(meteo|temps.qu'il|heure.qu'il.est|quelle.heure|foot(ball)?|sport|politique|musique|"
+    r"recette.de.cuisine|comment.cuisiner|film|serie|chanson|prix.de.l'or|bourse|crypto|bitcoin|"
+    r"traduction|translate|wikipedia|google|facebook|instagram|youtube|whatsapp|"
+    r"blague|joke|histoire.drole|jeu|game|horoscope|signe.zodiaque|amour|relation|"
+    r"president|gouvernement|election|loi|droit|medecin|maladie|sante|pharmacie|"
+    r"capitale.de|pays|geographie|calcul|mathematique|equation)"
+)
+
+OUT_OF_CONTEXT_RESPONSE = (
+    "Je suis spécialisé dans la **gestion de transport** 🚌 — je ne peux pas répondre à cette question.\n\n"
+    "En revanche, posez-moi des questions comme :\n"
+    "• *'Combien de trajets cette semaine ?'*\n"
+    "• *'Quel chauffeur a le plus d'incidents ?'*\n"
+    "• *'Recettes du mois par ligne'*"
+)
+
+
+# ─────────────────────────────────────────────
+# DÉTECTION D'INTENTION CONVERSATIONNELLE
 # ─────────────────────────────────────────────
 CONVERSATIONAL_PATTERNS = {
-    "greeting": r"(bonjour|salut|bonsoir|\bhello\b|\bhi\b|\bsalam\b|bonne\s*(matin|après|soir)|good\s*(morning|evening|afternoon))",
-    "thanks":   r"(merci|thank|bravo|parfait|excellent|nickel|c('|')est\s*(bon|bien|super|ok)|d'accord|\bok\s*$|bien\s*reçu)",
-    "help":     r"(\baide\b|\bhelp\b|que\s*peux.tu|fonctionnalité|qu('|')est.ce\s*que\s*tu|comment.*utiliser|que.*faire|\bmenu\b)",
-    "identity": r"(qui\s*(es|êtes).*(tu|vous)|présente.toi|c('|')est\s*quoi|tu\s*(es|fais|sais)|\btranspobot\b|\bassistant\b|\bbot\b)",
+    "greeting": r"(bonjour|salut|bonsoir|\bhello\b|\bhi\b|\bsalam\b|bonne\s*(matin|apres|soir)|good\s*(morning|evening|afternoon)|cv\b|ca.va\b)",
+    "thanks":   r"(merci|thank|bravo|parfait|excellent|nickel|genial|super.?bot|c.est\s*(bon|bien|super|ok|cool|top)|d.accord|\bok\s*$|bien.recu|impeccable|chapeau)",
+    "help":     r"(\baide\b|\bhelp\b|que\s*peux.tu|fonctionnalite|qu.est.ce\s*que\s*tu|comment.*utiliser|que.*faire|\bmenu\b|capacite|ce\s*que\s*tu\s*(sais|peux|fais))",
+    "identity": r"(qui\s*(es|etes).*(tu|vous)|presente.toi|c.est\s*quoi|tu\s*(es|fais|sais)|\btranspobot\b|\bassistant\b|\bbot\b|IA\b|intelligence)",
+    "positive":  r"(wow|waow|impressionnant|incroyable|trop.fort|magnifique|parfaitement|exactement|c.est.ca|voila.?!|super.?!|bien.joue|bravo.?!)",
 }
 
 CONVERSATIONAL_RESPONSES = {
@@ -99,49 +162,49 @@ CONVERSATIONAL_RESPONSES = {
         "Posez-moi vos questions sur :\n"
         "• 🚌 Véhicules, chauffeurs, lignes\n"
         "• 🛣️ Trajets, recettes, passagers\n"
-        "• 🔧 Maintenance, incidents\n\n"
-        "Exemple : *'Quel chauffeur a le plus d'incidents ce mois ?'*"
+        "• 🔧 Maintenance et incidents\n\n"
+        "Exemples : *'Combien de trajets cette semaine ?'* · *'Quel bus nécessite une réparation ?'*"
     ),
     "help": (
-        "Je peux vous aider sur :\n"
-        "• 🚌 **Véhicules** – statuts, kilométrages, types\n"
-        "• 👤 **Chauffeurs** – disponibilités, performances, incidents\n"
-        "• 🛣️ **Lignes & Trajets** – recettes, passagers, planning\n"
-        "• 🔧 **Maintenance** – coûts, plannings, urgences\n"
-        "• ⚠️ **Incidents** – gravité, résolution\n"
-        "• 💰 **Tarifs** – prix normal/étudiant par ligne\n\n"
-        "Exemples :\n"
-        "• *'Top 5 chauffeurs avec le plus d'incidents'*\n"
-        "• *'Recettes par ligne ce mois'*\n"
-        "• *'Véhicules nécessitant une maintenance'*"
+        "Voici ce que je sais faire :\n\n"
+        "• 🚌 **Véhicules** — statuts, kilométrages, types, capacités\n"
+        "• 👤 **Chauffeurs** — disponibilités, performances, ancienneté\n"
+        "• 🛣️ **Lignes & Trajets** — recettes, passagers, planning, annulations\n"
+        "• 🔧 **Maintenance** — coûts, plannings, urgences\n"
+        "• ⚠️ **Incidents** — gravité, résolution, types\n"
+        "• 💰 **Tarifs** — prix normal/étudiant par ligne\n"
+        "• 📊 **Statistiques** — tableaux de bord, tendances, classements\n\n"
+        "Posez votre question librement, je comprends le français naturel !"
     ),
     "thanks": "Avec plaisir ! 😊 N'hésitez pas si vous avez d'autres questions.",
     "identity": (
-        "Je suis **TranspoBot Analyst** 🤖, un assistant IA spécialisé dans l'analyse des données de transport au Sénégal.\n\n"
-        "Je génère automatiquement des requêtes SQL à partir de vos questions en français ou anglais, "
-        "et j'interprète les résultats pour vous. Je peux analyser vos véhicules, chauffeurs, trajets, incidents, maintenances et finances."
+        "Je suis **TranspoBot Analyst** 🤖 — un assistant IA spécialisé dans l'analyse des données de transport.\n\n"
+        "Je lis votre question en français, génère automatiquement une requête SQL sur votre base MariaDB, "
+        "exécute la requête et vous présente les résultats en langage naturel.\n\n"
+        "Je peux analyser : véhicules, chauffeurs, trajets, lignes, incidents, maintenances et finances."
     ),
+    "positive": "Merci ! 😄 Je suis là pour vous aider. Posez votre prochaine question !",
 }
 
-def _normalize(text: str) -> str:
-    """Normalise les accents pour la comparaison : é→e, è→e, ê→e, à→a, etc."""
-    replacements = str.maketrans("éèêëàâùûüîïôçœæ", "eeeeeauuuiiocoe")
-    return text.translate(replacements)
+# Mots-clés qui indiquent une question métier (ne pas traiter comme hors-contexte)
+_BUSINESS_RE = re.compile(
+    r"(trajet|chauffeur|vehicule|incident|maintenance|ligne|recette|tarif|passager|km|planning|"
+    r"conducteur|bus|accident|reparation|route|benefice|client|voyageur|"
+    r"disponible|actif|en.cours|termine|annule|grave|flotte|transport)"
+)
 
 def detect_conversational_intent(question: str) -> str | None:
     """Détecte les intentions conversationnelles — fonctionne avec ou sans historique."""
-    q = question.strip().lower()
-    qn = _normalize(q)  # version sans accents pour les comparaisons
-    # Mots-clés métier (avec et sans accents)
-    has_business = re.search(
-        r"(trajet|chauffeur|v[eé]hicule|incident|maintenance|ligne|recette|tarif|passager|km|planning|vehicule)",
-        qn
-    )
+    q  = question.strip().lower()
+    qn = _normalize(q)
+    # Ne pas traiter comme conversationnel si mots-clés métier présents
+    if _BUSINESS_RE.search(qn):
+        return None
     for intent, pattern in CONVERSATIONAL_PATTERNS.items():
-        if re.search(pattern, q) or re.search(pattern, qn):
+        if re.search(pattern, qn):
             return intent
     # Fallback : question très courte sans mot métier → greeting
-    if len(q) <= 15 and not has_business:
+    if len(q) <= 12 and not _BUSINESS_RE.search(qn):
         return "greeting"
     return None
 
@@ -168,6 +231,63 @@ Réponds UNIQUEMENT JSON sans markdown:{{"sql":"SELECT...","answer":"réponse fr
 # RACCOURCIS INSTANTANÉS  (bypass LLM pour requêtes fréquentes)
 # ─────────────────────────────────────────────
 _SHORTCUTS = [
+    # == QUESTIONS VAGUES / ULTRA-COURTES (doivent être en tête) ==
+    (r"^\s*(stat[s]?|kpi|bilan|resume|tableau.de.bord|dashboard|overview|situation|global|general)\s*[?!]?\s*$",
+     "SELECT (SELECT COUNT(*) FROM vehicules WHERE statut='actif') AS vehicules_actifs, (SELECT COUNT(*) FROM vehicules) AS total_vehicules, (SELECT COUNT(*) FROM chauffeurs WHERE disponibilite=1) AS chauffeurs_disponibles, (SELECT COUNT(*) FROM incidents WHERE resolu=0) AS incidents_ouverts, (SELECT COUNT(*) FROM incidents WHERE gravite='grave' AND resolu=0) AS incidents_graves, (SELECT COALESCE(SUM(recette),0) FROM trajets WHERE statut='termine' AND date(date_heure_depart)=CURDATE()) AS recette_jour, (SELECT COUNT(*) FROM trajets WHERE date(date_heure_depart)=CURDATE()) AS trajets_aujourd_hui, (SELECT COUNT(*) FROM maintenance WHERE effectuee=0) AS maintenances_en_attente",
+     "Tableau de bord :", "statistique"),
+    (r"^\s*(chauffeur[s]?)\s*[?!]?\s*$",
+     "SELECT nom, prenom, telephone, CASE disponibilite WHEN 1 THEN 'disponible' ELSE 'indisponible' END AS statut FROM chauffeurs ORDER BY disponibilite DESC, nom",
+     "Liste des chauffeurs :", "liste"),
+    (r"^\s*(vehicule[s]?|bus|flotte)\s*[?!]?\s*$",
+     "SELECT immatriculation, type, statut, capacite, kilometrage FROM vehicules ORDER BY statut, immatriculation",
+     "Liste des véhicules :", "liste"),
+    (r"^\s*(incident[s]?)\s*[?!]?\s*$",
+     "SELECT type, gravite, COUNT(*) AS nb, SUM(CASE WHEN resolu=0 THEN 1 ELSE 0 END) AS ouverts FROM incidents GROUP BY type, gravite ORDER BY CASE gravite WHEN 'grave' THEN 1 WHEN 'moyen' THEN 2 ELSE 3 END",
+     "Incidents par type et gravité :", "statistique"),
+    (r"^\s*(trajet[s]?)\s*[?!]?\s*$",
+     "SELECT statut, COUNT(*) AS nb FROM trajets GROUP BY statut ORDER BY nb DESC",
+     "Trajets par statut :", "statistique"),
+    (r"^\s*(ligne[s]?|route[s]?)\s*[?!]?\s*$",
+     "SELECT code, nom, origine, destination, distance_km FROM lignes ORDER BY code",
+     "Liste des lignes :", "liste"),
+    (r"^\s*(maintenance[s]?|reparation[s]?|entretien[s]?)\s*[?!]?\s*$",
+     "SELECT v.immatriculation, m.type, m.date_prevue, m.cout, CASE m.effectuee WHEN 1 THEN 'effectuee' ELSE 'en attente' END AS statut FROM maintenance m JOIN vehicules v ON m.vehicule_id=v.id ORDER BY m.effectuee, m.date_prevue",
+     "Liste des maintenances :", "maintenance"),
+    (r"^\s*(recette[s]?|finance[s]?|argent|revenu[s]?|benefice)\s*[?!]?\s*$",
+     "SELECT DATE_FORMAT(date_heure_depart, '%Y-%m') AS mois, SUM(recette) AS recette_totale, COUNT(*) AS nb_trajets FROM trajets WHERE statut='termine' GROUP BY mois ORDER BY mois DESC LIMIT 6",
+     "Recettes par mois :", "financier"),
+    (r"^\s*(planning|programme|agenda|calendrier)\s*[?!]?\s*$",
+     "SELECT p.date_heure_depart_prevue, l.nom AS ligne, CONCAT(c.prenom,' ',c.nom) AS chauffeur, v.immatriculation, p.statut FROM plannings p JOIN lignes l ON p.ligne_id=l.id JOIN chauffeurs c ON p.chauffeur_id=c.id JOIN vehicules v ON p.vehicule_id=v.id WHERE date(p.date_heure_depart_prevue)=CURDATE() ORDER BY p.date_heure_depart_prevue",
+     "Planning du jour :", "liste"),
+    (r"^\s*(tarif[s]?|prix|billet[s]?|ticket[s]?)\s*[?!]?\s*$",
+     "SELECT l.nom, tf.type_client, tf.prix FROM tarifs tf JOIN lignes l ON tf.ligne_id=l.id WHERE CURDATE() BETWEEN tf.date_debut AND tf.date_fin ORDER BY l.nom, tf.type_client",
+     "Tarifs en vigueur :", "liste"),
+    # == QUESTIONS AVEC "les/des + entité" → liste ==
+    (r"^(les|des|tous.les|toutes.les|voir.les|montre.les|donne.moi.les|affiche.les|liste.des)\s+chauffeur",
+     "SELECT nom, prenom, telephone, CASE disponibilite WHEN 1 THEN 'disponible' ELSE 'indisponible' END AS statut FROM chauffeurs ORDER BY disponibilite DESC, nom",
+     "Liste des chauffeurs :", "liste"),
+    (r"^(les|des|tous.les|voir.les|montre.les|donne.moi.les|affiche.les|liste.des)\s+vehicule",
+     "SELECT immatriculation, type, statut, capacite, kilometrage FROM vehicules ORDER BY statut, immatriculation",
+     "Liste des véhicules :", "liste"),
+    (r"^(les|des|tous.les|voir.les|montre.les|donne.moi.les|affiche.les|liste.des)\s+incident",
+     "SELECT type, gravite, description, CASE resolu WHEN 1 THEN 'resolu' ELSE 'ouvert' END AS etat FROM incidents ORDER BY CASE gravite WHEN 'grave' THEN 1 WHEN 'moyen' THEN 2 ELSE 3 END LIMIT 20",
+     "Incidents :", "statistique"),
+    (r"^(les|des|tous.les|voir.les|montre.les|donne.moi.les|affiche.les|liste.des)\s+trajet",
+     "SELECT t.date_heure_depart, l.nom AS ligne, CONCAT(c.prenom,' ',c.nom) AS chauffeur, t.statut, t.nb_passagers FROM trajets t JOIN lignes l ON t.ligne_id=l.id JOIN chauffeurs c ON t.chauffeur_id=c.id ORDER BY t.date_heure_depart DESC LIMIT 15",
+     "Derniers trajets :", "liste"),
+    (r"^(les|des|toutes.les|voir.les|montre.les|donne.moi.les|affiche.les|liste.des)\s+ligne",
+     "SELECT code, nom, origine, destination, distance_km FROM lignes ORDER BY code",
+     "Liste des lignes :", "liste"),
+    # == QUESTIONS AVEC "il y a combien de" ==
+    (r"(il.{0,5}y.{0,5}a.{0,5}combien|y.{0,5}a.{0,5}(t.il.)?combien|c.est.quoi.le.nombre).{0,15}chauffeur",
+     "SELECT disponibilite, COUNT(*) AS nb FROM chauffeurs GROUP BY disponibilite",
+     "Répartition des chauffeurs :", "statistique"),
+    (r"(il.{0,5}y.{0,5}a.{0,5}combien|y.{0,5}a.{0,5}(t.il.)?combien).{0,15}vehicule",
+     "SELECT statut, COUNT(*) AS nb FROM vehicules GROUP BY statut",
+     "Répartition des véhicules :", "statistique"),
+    (r"(il.{0,5}y.{0,5}a.{0,5}combien|y.{0,5}a.{0,5}(t.il.)?combien).{0,15}incident",
+     "SELECT gravite, COUNT(*) AS nb, SUM(CASE WHEN resolu=0 THEN 1 ELSE 0 END) AS ouverts FROM incidents GROUP BY gravite",
+     "Incidents par gravité :", "statistique"),
     # == PRIORITE MAX : jointures complexes multi-tables ==
     (r"chauffeur.{0,40}(plus|max|beaucoup|davantage).{0,20}incident",
      "SELECT CONCAT(c.prenom,' ',c.nom) AS chauffeur, COUNT(i.id) AS nb_incidents, SUM(CASE WHEN i.gravite='grave' THEN 1 ELSE 0 END) AS graves, SUM(CASE WHEN i.resolu=0 THEN 1 ELSE 0 END) AS ouverts FROM incidents i JOIN trajets t ON i.trajet_id=t.id JOIN chauffeurs c ON t.chauffeur_id=c.id GROUP BY c.id ORDER BY nb_incidents DESC LIMIT 10",
@@ -458,7 +578,7 @@ _SHORTCUTS = [
 
 def try_shortcut(question: str) -> dict | None:
     """Retourne {sql, answer, intent} si la question correspond à un raccourci, sinon None."""
-    q = _normalize(question.lower())  # normalise les accents avant matching
+    q = _expand_question(question)  # normalise accents + alias avant matching
     for pattern, sql, answer, intent in _SHORTCUTS:
         if re.search(pattern, q):
             return {"sql": sql, "answer": answer, "intent": intent}
@@ -473,7 +593,7 @@ def smart_fallback(question: str) -> dict | None:
     Génère du SQL sans LLM en détectant l'entité principale et l'intention.
     Appelé quand aucun raccourci exact ne correspond.
     """
-    q = _normalize(question.lower())  # normalise les accents
+    q = _expand_question(question)  # normalise accents + alias
 
     # ── Entité principale ──────────────────────────────────────────────────
     entity = None
@@ -748,8 +868,9 @@ async def auto_fix_sql(original_sql: str, error_msg: str, question: str) -> str 
         {
             "role": "system",
             "content": (
-                "Tu es un expert SQLite. Corrige la requête SQL ci-dessous qui a produit une erreur. "
-                "Utilise la syntaxe SQLite : CONCAT(prenom,' ',nom) pour concat, DATE_FORMAT(col, '%Y-%m') pour dates, CURDATE() pour aujourd'hui. "
+                "Tu es un expert SQL MySQL/MariaDB. Corrige la requête SQL ci-dessous qui a produit une erreur. "
+                "Syntaxe MySQL : CONCAT(a,' ',b) pour concat, DATE_FORMAT(col,'%Y-%m') pour mois, "
+                "CURDATE() pour aujourd'hui, TIMESTAMPDIFF(YEAR,col,CURDATE()) pour ancienneté. "
                 "Retourne UNIQUEMENT la requête SQL corrigée, sans explication, sans markdown."
             )
         },
@@ -758,8 +879,8 @@ async def auto_fix_sql(original_sql: str, error_msg: str, question: str) -> str 
             "content": (
                 f"Question originale : {question}\n"
                 f"Requête SQL fautive :\n{original_sql}\n"
-                f"Erreur SQLite :\n{error_msg}\n\n"
-                "Génère une requête SQLite corrigée qui répond à la question :"
+                f"Erreur MySQL :\n{error_msg}\n\n"
+                "Génère une requête MySQL/MariaDB corrigée qui répond à la question :"
             )
         }
     ]
@@ -1022,14 +1143,18 @@ async def chat(
     current_user: Utilisateur = Depends(get_current_user),
 ):
     try:
-        question = req.question.strip()
-        q_lower  = question.lower()
+        question  = req.question.strip()
+        q_lower   = question.lower()
+        q_expanded = _expand_question(question)  # version normalisée + alias
 
         # ── 0. RÉPONSES CONVERSATIONNELLES (sans SQL) ──────────────────────
-        # Fonctionne toujours, même avec un historique de conversation
         intent_conv = detect_conversational_intent(q_lower)
         if intent_conv:
             return {"answer": CONVERSATIONAL_RESPONSES[intent_conv], "sql": None, "data": [], "intent": "conversationnel"}
+
+        # ── 0a. HORS CONTEXTE ───────────────────────────────────────────────
+        if _OUT_OF_CONTEXT_PATTERNS.search(_normalize(q_lower)) and not _BUSINESS_RE.search(q_expanded):
+            return {"answer": OUT_OF_CONTEXT_RESPONSE, "sql": None, "data": [], "intent": "hors_contexte"}
 
         # ── 0b. RACCOURCIS INSTANTANÉS (bypass LLM) ─────────────────────────
         shortcut = try_shortcut(question)
@@ -1062,7 +1187,7 @@ async def chat(
             logging.info("CACHE HIT")
             sql = SQL_CACHE[cache_key]
         else:
-            # ── 2. GÉNÉRATION SQL (PASS 1) ───────────────────────────────
+            # ── 2. GÉNÉRATION SQL via LLM ────────────────────────────────
             system_prompt = build_system_prompt()
             messages = [{"role": "system", "content": system_prompt}]
 
@@ -1070,19 +1195,39 @@ async def chat(
             for msg in req.history[-3:]:
                 messages.append({"role": msg.role, "content": msg.content})
 
-            messages.append({"role": "user", "content": question})
+            # On envoie la question originale + version normalisée pour aider le LLM
+            llm_question = question
+            if q_expanded != _normalize(q_lower):
+                llm_question = f"{question} [{q_expanded}]"
+            messages.append({"role": "user", "content": llm_question})
 
             try:
                 raw = await asyncio.wait_for(
-                    invoke_llm(messages, options={"require_json": True, "num_predict": 250, "num_ctx": 512}),
-                    timeout=15.0
+                    invoke_llm(messages, options={"require_json": True, "num_predict": 300, "num_ctx": 768}),
+                    timeout=20.0
                 )
             except asyncio.TimeoutError:
-                logging.warning("LLM timeout after 15s — question non reconnue")
+                logging.warning("LLM timeout — tentative smart_fallback de secours")
+                # Tentative de secours : smart_fallback avec la question normalisée
+                fallback2 = smart_fallback(q_expanded)
+                if fallback2:
+                    try:
+                        result = db.execute(text(fallback2["sql"]))
+                        keys = list(result.keys())
+                        rows = result.fetchall()
+                        data = [dict(zip(keys, row)) for row in rows]
+                        for row in data:
+                            for k, v in row.items():
+                                if hasattr(v, "isoformat"): row[k] = v.isoformat()
+                        ans = synthesize_answer_fast(fallback2["answer"], data, fallback2["intent"])
+                        return {"answer": ans, "sql": fallback2["sql"], "data": data, "intent": fallback2["intent"]}
+                    except Exception:
+                        pass
                 return {
                     "answer": (
-                        "Je n'ai pas reconnu cette question. Soyez plus précis, par exemple :\n"
-                        "• *'liste des chauffeurs disponibles'*\n"
+                        "Je n'ai pas pu traiter votre question dans les délais. "
+                        "Reformulez en utilisant des termes précis, par exemple :\n"
+                        "• *'chauffeurs disponibles'*\n"
                         "• *'recettes du mois'*\n"
                         "• *'incidents graves non résolus'*\n"
                         "• *'planning de demain'*"
