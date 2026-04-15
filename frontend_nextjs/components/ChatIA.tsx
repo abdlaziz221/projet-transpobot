@@ -383,6 +383,7 @@ export default function ChatIA() {
   const [autoSpeak,   setAutoSpeak]   = useState(false);
   const [hasStt,      setHasStt]      = useState(false);
   const [hasTts,      setHasTts]      = useState(false);
+  const [statusMsg,   setStatusMsg]   = useState('');
 
   const messagesEndRef  = useRef<HTMLDivElement>(null);
   const textareaRef     = useRef<HTMLTextAreaElement>(null);
@@ -403,43 +404,6 @@ export default function ChatIA() {
     }
   }, [input]);
 
-  // ── Inverse parallax (lerped, no state re-renders) ───
-  useEffect(() => {
-    const inner = document.getElementById('chat-inner');
-    let rafId = 0, tx = 0, ty = 0, cx = 0, cy = 0;
-    const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
-    const onMove = (e: MouseEvent) => {
-      tx = (e.clientX / window.innerWidth  - 0.5) * -9;
-      ty = (e.clientY / window.innerHeight - 0.5) * -5;
-    };
-    const tick = () => {
-      cx = lerp(cx, tx, 0.05);
-      cy = lerp(cy, ty, 0.05);
-      if (inner) inner.style.transform = `translate(${cx}px,${cy}px)`;
-      rafId = requestAnimationFrame(tick);
-    };
-    window.addEventListener('mousemove', onMove);
-    rafId = requestAnimationFrame(tick);
-    return () => { window.removeEventListener('mousemove', onMove); cancelAnimationFrame(rafId); };
-  }, []);
-
-  // ── Motion blur on scroll ─────────────────────────────
-  useEffect(() => {
-    const el = document.getElementById('chat-scroll');
-    if (!el) return;
-    let timer: ReturnType<typeof setTimeout>;
-    const onScroll = () => {
-      el.style.filter = 'blur(0.7px)';
-      el.style.transition = 'filter 0s';
-      clearTimeout(timer);
-      timer = setTimeout(() => {
-        el.style.transition = 'filter 0.25s ease';
-        el.style.filter = 'none';
-      }, 110);
-    };
-    el.addEventListener('scroll', onScroll, { passive: true });
-    return () => el.removeEventListener('scroll', onScroll);
-  }, []);
 
   // ── Speech Recognition setup ─────────────────────────
   useEffect(() => {
@@ -486,13 +450,20 @@ export default function ChatIA() {
     setInput('');
     setLoading(true);
     setAiState('thinking');
+    setStatusMsg('est en train d\'écrire…');
 
     try {
-      const res  = await fetchWithAuth('/chat', {
+      const res = await fetchWithAuth('/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ question: userMsg, history }),
       });
+
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '');
+        throw new Error(`HTTP ${res.status}: ${errText.slice(0, 100)}`);
+      }
+
       const data = await res.json();
       const hasData = data.data?.length > 0;
       setAiState(hasData ? 'result' : 'idle');
@@ -508,16 +479,25 @@ export default function ChatIA() {
         setMessages(p => p.map(m => m.id === id ? { ...m, isNew: false } : m));
         setAiState('idle');
       }, 1900);
-    } catch {
+    } catch (err: any) {
       setAiState('idle');
-      toast.error('Erreur', "L'assistant n'a pas pu répondre.");
+      const msg = err?.message || '';
+      const display = msg.includes('401')
+        ? "Session expirée. Reconnectez-vous."
+        : msg.includes('429')
+        ? "Trop de requêtes. Attendez un moment."
+        : msg.includes('Failed to fetch') || msg.includes('NetworkError')
+        ? "Backend inaccessible. Vérifiez qu'il est démarré."
+        : `Erreur : ${msg.slice(0, 80) || "inconnue"}`;
+      toast.error('Erreur IA', display);
       setMessages(p => [...p, {
         id: Date.now() + 1, role: 'bot', error: true, isNew: false,
-        text: "Impossible de joindre le service IA. Vérifiez que le backend est actif.",
+        text: display,
         time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
       }]);
     } finally {
       setLoading(false);
+      setStatusMsg('');
     }
   }
 
@@ -569,10 +549,10 @@ export default function ChatIA() {
   }
 
   const suggestions = [
-    { label: 'Revenus par ligne ce mois',   icon: <TrendingUp size={13} /> },
-    { label: 'Véhicules en maintenance',    icon: <Zap        size={13} /> },
-    { label: 'Top 5 chauffeurs',            icon: <Users      size={13} /> },
-    { label: "Taux d'occupation moyen",     icon: <BarChart2  size={13} /> },
+    { label: 'Combien de trajets cette semaine ?',           icon: <TrendingUp size={13} /> },
+    { label: 'Quel chauffeur a le plus d\'incidents ?',      icon: <Users      size={13} /> },
+    { label: 'Quels véhicules nécessitent une maintenance ?',icon: <Zap        size={13} /> },
+    { label: 'Recettes par ligne',                           icon: <BarChart2  size={13} /> },
   ];
 
   // ── Render ────────────────────────────────────────────
@@ -603,12 +583,12 @@ export default function ChatIA() {
             <div style={{ fontSize: '11px', marginTop: 1 }}>
               {aiState === 'thinking' ? (
                 <span style={{ color: '#f0a040', animation: 'textPulse 0.7s ease infinite' }}>
-                  Analyse en cours…
+                  {statusMsg || 'est en train d\'écrire…'}
                 </span>
               ) : aiState === 'result' ? (
                 <span style={{ color: '#4ade80' }}>Résultats prêts ✓</span>
               ) : (
-                <span style={{ color: 'rgba(255,255,255,0.32)' }}>Analyse sémantique · MariaDB</span>
+                <span style={{ color: 'rgba(255,255,255,0.32)' }}>Prêt · MariaDB</span>
               )}
             </div>
           </div>
@@ -681,7 +661,6 @@ export default function ChatIA() {
         <div id="chat-inner" style={{
           maxWidth: '820px', margin: '0 auto', padding: '0 24px',
           display: 'flex', flexDirection: 'column', gap: '28px',
-          willChange: 'transform',
         }}>
           {messages.map((m, i) => (
             <MessageBubble
@@ -703,8 +682,8 @@ export default function ChatIA() {
                 background: 'rgba(255,255,255,0.03)',
                 border: '1px solid rgba(255,255,255,0.07)',
                 borderRadius: '4px 14px 14px 14px',
-                padding: '16px 22px',
-                display: 'flex', gap: 6, alignItems: 'center',
+                padding: '14px 20px',
+                display: 'flex', gap: 8, alignItems: 'center',
               }}>
                 {[0, 0.15, 0.3].map((d, i) => (
                   <span key={i} style={{
@@ -713,6 +692,11 @@ export default function ChatIA() {
                     animation: `dotBlink 1.2s ease-in-out ${d}s infinite`,
                   }} />
                 ))}
+                {statusMsg && (
+                  <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)', marginLeft: 4 }}>
+                    {statusMsg}
+                  </span>
+                )}
               </div>
             </div>
           )}
@@ -729,18 +713,20 @@ export default function ChatIA() {
       }}>
         <div style={{ maxWidth: '820px', margin: '0 auto' }}>
 
-          {/* Suggestion pills */}
-          {messages.length <= 2 && !loading && (
-            <div style={{
-              display: 'flex', gap: 8, marginBottom: 12,
-              overflowX: 'auto', paddingBottom: 4, scrollbarWidth: 'none',
-            }}>
-              {suggestions.map((s, i) => (
-                <RippleSuggestion key={i} label={s.label} icon={s.icon}
-                  onClick={() => { setInput(s.label); textareaRef.current?.focus(); }} />
-              ))}
-            </div>
-          )}
+          {/* Suggestion pills — visibles quand le champ est vide */}
+          <div style={{
+            display: 'flex', gap: 8, marginBottom: 12,
+            overflowX: 'auto', paddingBottom: 4, scrollbarWidth: 'none',
+            maxHeight: input.trim() === '' && !loading ? '40px' : '0px',
+            opacity: input.trim() === '' && !loading ? 1 : 0,
+            overflow: 'hidden',
+            transition: 'max-height 0.25s ease, opacity 0.2s ease',
+          }}>
+            {suggestions.map((s, i) => (
+              <RippleSuggestion key={i} label={s.label} icon={s.icon}
+                onClick={() => { setInput(s.label); textareaRef.current?.focus(); }} />
+            ))}
+          </div>
 
           {/* ── Animated gradient border wrapper ── */}
           <div className={inputActive ? 'inp-wrap inp-wrap--on' : 'inp-wrap'}>
@@ -819,13 +805,6 @@ export default function ChatIA() {
             </form>
           </div>
 
-          <p style={{
-            textAlign: 'center', marginTop: 10,
-            fontSize: '11px', color: 'rgba(255,255,255,0.17)',
-            letterSpacing: '0.02em',
-          }}>
-            TranspoBot v2.0 · Analyse sémantique · Sénégal 🇸🇳
-          </p>
         </div>
       </footer>
 

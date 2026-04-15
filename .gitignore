@@ -28,6 +28,7 @@ __pycache__/
 venv/
 ENV/
 .env
+.env.prod
 backend/.env
 
 # --- NODE / NEXT.JS ---

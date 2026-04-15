@@ -22,7 +22,7 @@ export default function Sidebar({
     { id: 'trips',       icon: Navigation,       label: 'Trajets' },
     { id: 'lines',       icon: Route,            label: 'Lignes' },
     { id: 'fares',       icon: Tag,              label: 'Tarification' },
-    { id: 'incidents',   icon: AlertTriangle,    label: 'Incidents', badge: incidentCount },
+    { id: 'incidents',   icon: AlertTriangle,    label: 'Incidents' },
     { id: 'maintenance', icon: Wrench,           label: 'Maintenance' },
     { id: 'map',         icon: Map,              label: 'Carte Live' },
     { id: 'chat',        icon: MessageSquare,    label: 'AI Chat' },
@@ -32,17 +32,17 @@ export default function Sidebar({
     <aside style={{
       width: isCollapsed ? 'var(--sidebar-w-collapsed)' : 'var(--sidebar-w)',
       height: '100vh',
-      background: 'var(--bg)',
+      background: 'var(--surface)',
       borderRight: '1px solid var(--border)',
-      position: window?.innerWidth < 768 ? 'fixed' : 'fixed',
-      left: window?.innerWidth < 768 && !isCollapsed ? '-100%' : '0',
+      position: 'fixed',
+      left: 0,
       top: 0,
       display: 'flex',
       flexDirection: 'column',
       zIndex: 100,
-      transition: 'width var(--transition-base), left var(--transition-base)',
+      transition: 'width var(--transition-base)',
       fontFamily: 'var(--font-sans)',
-      boxShadow: window?.innerWidth < 768 ? 'var(--shadow-lg)' : 'none',
+      boxShadow: 'var(--shadow-sm)',
     }}>
 
       {/* ── LOGO ── */}
@@ -51,7 +51,7 @@ export default function Sidebar({
         alignItems: 'center',
         gap: '12px',
         padding: '22px 18px',
-        borderBottom: '1px solid rgba(255,255,255,0.05)',
+        borderBottom: '1px solid var(--subtle-border)',
         overflow: 'hidden',
         whiteSpace: 'nowrap',
       }}>
@@ -74,14 +74,13 @@ export default function Sidebar({
               fontSize: '17px',
               fontWeight: 800,
               letterSpacing: '-0.02em',
-              color: 'white',
+              color: 'var(--text-main)',
             }}>
               Transpo<span style={{ color: '#e07b3a' }}>Bot</span>
             </span>
-            <div style={{
+            <div className="sidebar-subtle" style={{
               fontSize: '9px',
               fontWeight: 700,
-              color: 'rgba(255,255,255,0.3)',
               letterSpacing: '0.1em',
               textTransform: 'uppercase',
               marginTop: '1px',
@@ -107,6 +106,7 @@ export default function Sidebar({
               key={Item.id}
               onClick={() => setActivePage(Item.id)}
               title={isCollapsed ? Item.label : ''}
+              className={`nav-item${isActive ? ' active' : ''}`}
               style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -119,29 +119,7 @@ export default function Sidebar({
                 width: '100%',
                 fontSize: '13.5px',
                 fontWeight: isActive ? 700 : 500,
-                transition: 'all 0.15s ease',
-                background: isActive
-                  ? 'rgba(196,88,30,0.15)'
-                  : 'transparent',
-                color: isActive
-                  ? '#e07b3a'
-                  : 'rgba(255,255,255,0.45)',
                 position: 'relative',
-                borderLeft: isActive
-                  ? '2px solid #c4581e'
-                  : '2px solid transparent',
-              }}
-              onMouseEnter={e => {
-                if (!isActive) {
-                  e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
-                  e.currentTarget.style.color = 'rgba(255,255,255,0.75)';
-                }
-              }}
-              onMouseLeave={e => {
-                if (!isActive) {
-                  e.currentTarget.style.background = 'transparent';
-                  e.currentTarget.style.color = 'rgba(255,255,255,0.45)';
-                }
               }}
             >
               <Item.icon
@@ -152,27 +130,6 @@ export default function Sidebar({
               {!isCollapsed && (
                 <span style={{ transition: 'opacity 0.2s', flex: 1 }}>
                   {Item.label}
-                </span>
-              )}
-              {(Item.badge > 0) && (
-                <span style={{
-                  position: isCollapsed ? 'absolute' : 'static',
-                  top: isCollapsed ? '4px' : 'auto',
-                  right: isCollapsed ? '4px' : 'auto',
-                  marginLeft: isCollapsed ? 0 : 'auto',
-                  minWidth: '18px',
-                  height: '18px',
-                  background: '#ef4444',
-                  color: 'white',
-                  borderRadius: '9px',
-                  fontSize: '10px',
-                  fontWeight: 700,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  padding: '0 4px',
-                }}>
-                  {Item.badge}
                 </span>
               )}
             </button>
@@ -197,10 +154,10 @@ export default function Sidebar({
             }}>
               <Zap size={56} />
             </div>
-            <p style={{ fontSize: '12px', fontWeight: 700, color: 'white', marginBottom: '3px' }}>
+            <p className="sidebar-title" style={{ fontSize: '12px', fontWeight: 700, marginBottom: '3px' }}>
               Assistant IA
             </p>
-            <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', marginBottom: '10px', lineHeight: 1.4 }}>
+            <p className="sidebar-subtle" style={{ fontSize: '11px', marginBottom: '10px', lineHeight: 1.4 }}>
               Analysez vos données en langage naturel.
             </p>
             <button
@@ -235,29 +192,15 @@ export default function Sidebar({
       {/* ── COLLAPSE TOGGLE ── */}
       <button
         onClick={toggleCollapse}
+        className="icon-btn"
         style={{
           margin: '0 10px 10px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
           padding: '8px',
           borderRadius: '10px',
-          background: 'rgba(255,255,255,0.04)',
-          border: '1px solid rgba(255,255,255,0.06)',
-          cursor: 'pointer',
-          color: 'rgba(255,255,255,0.35)',
-          transition: 'all 0.2s',
           gap: '6px',
           fontSize: '12px',
           fontWeight: 600,
-        }}
-        onMouseEnter={e => {
-          e.currentTarget.style.background = 'rgba(255,255,255,0.07)';
-          e.currentTarget.style.color = 'rgba(255,255,255,0.7)';
-        }}
-        onMouseLeave={e => {
-          e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
-          e.currentTarget.style.color = 'rgba(255,255,255,0.35)';
+          width: 'calc(100% - 20px)',
         }}
       >
         {isCollapsed
@@ -269,11 +212,12 @@ export default function Sidebar({
       {/* ── LOGOUT ── */}
       <div style={{
         padding: '0 10px 16px',
-        borderTop: '1px solid rgba(255,255,255,0.05)',
+        borderTop: '1px solid var(--subtle-border)',
         paddingTop: '12px',
       }}>
         <button
           onClick={onLogout}
+          className="logout-btn"
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -281,7 +225,6 @@ export default function Sidebar({
             gap: '10px',
             padding: '10px 12px',
             borderRadius: '10px',
-            color: 'rgba(239,68,68,0.7)',
             background: 'transparent',
             border: 'none',
             cursor: 'pointer',
@@ -289,14 +232,15 @@ export default function Sidebar({
             fontWeight: 600,
             width: '100%',
             transition: 'all 0.2s',
+            color: 'var(--danger-500)',
           }}
           onMouseEnter={e => {
-            e.currentTarget.style.background = 'rgba(239,68,68,0.08)';
-            e.currentTarget.style.color = '#f87171';
+            e.currentTarget.style.background = 'var(--danger-50)';
+            e.currentTarget.style.color = 'var(--danger-600)';
           }}
           onMouseLeave={e => {
             e.currentTarget.style.background = 'transparent';
-            e.currentTarget.style.color = 'rgba(239,68,68,0.7)';
+            e.currentTarget.style.color = 'var(--danger-500)';
           }}
         >
           <LogOut size={18} />

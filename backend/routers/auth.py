@@ -1,3 +1,4 @@
+import os
 from fastapi import APIRouter, Depends, HTTPException, status, Request, Response
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
@@ -59,7 +60,8 @@ def login(request: Request, response: Response, form_data: OAuth2PasswordRequest
         expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     )
     
-    # Cookie HttpOnly pour la persistance
+    # Cookie HttpOnly pour la persistance (secure=True en production HTTPS)
+    is_prod = os.getenv("ENVIRONMENT", "development") == "production"
     response.set_cookie(
         key="access_token",
         value=access_token,
@@ -67,7 +69,7 @@ def login(request: Request, response: Response, form_data: OAuth2PasswordRequest
         max_age=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         expires=ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         samesite="lax",
-        secure=False, 
+        secure=is_prod,
     )
     
     return {"access_token": access_token, "token_type": "bearer", "role": user.role}
