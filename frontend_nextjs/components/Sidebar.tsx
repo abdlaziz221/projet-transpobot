@@ -13,7 +13,8 @@ export default function Sidebar({
   onLogout,
   incidentCount = 0,
   isCollapsed = false,
-  toggleCollapse
+  toggleCollapse,
+  isMobileOpen = false,
 }: any) {
   const items = [
     { id: 'dashboard',   icon: LayoutDashboard, label: 'Dashboard' },
@@ -29,21 +30,26 @@ export default function Sidebar({
   ];
 
   return (
-    <aside style={{
-      width: isCollapsed ? 'var(--sidebar-w-collapsed)' : 'var(--sidebar-w)',
-      height: '100vh',
-      background: 'var(--surface)',
-      borderRight: '1px solid var(--border)',
-      position: 'fixed',
-      left: 0,
-      top: 0,
-      display: 'flex',
-      flexDirection: 'column',
-      zIndex: 100,
-      transition: 'width var(--transition-base)',
-      fontFamily: 'var(--font-sans)',
-      boxShadow: 'var(--shadow-sm)',
-    }}>
+    <aside
+      className={typeof window !== 'undefined' && window.innerWidth <= 768
+        ? (isMobileOpen ? 'sidebar-mobile-open' : 'sidebar-mobile-hidden')
+        : ''
+      }
+      style={{
+        width: isCollapsed ? 'var(--sidebar-w-collapsed)' : 'var(--sidebar-w)',
+        height: '100vh',
+        background: 'var(--surface)',
+        borderRight: '1px solid var(--border)',
+        position: 'fixed',
+        left: 0,
+        top: 0,
+        display: 'flex',
+        flexDirection: 'column',
+        zIndex: 100,
+        transition: 'width var(--transition-base)',
+        fontFamily: 'var(--font-sans)',
+        boxShadow: 'var(--shadow-sm)',
+      }}>
 
       {/* ── LOGO ── */}
       <div style={{

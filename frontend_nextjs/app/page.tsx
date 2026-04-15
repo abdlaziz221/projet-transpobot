@@ -27,9 +27,15 @@ export default function Home() {
   const [globalStats, setGlobalStats] = useState<any>(null);
   const [globalSearch, setGlobalSearch] = useState('');
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
-  
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+
   useEffect(() => {
     checkAuth();
+    const checkMobile = () => setIsMobile(window.innerWidth <= 768);
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   async function checkAuth() {
@@ -65,20 +71,37 @@ export default function Home() {
 
   return (
     <div className="app-container">
-        <Sidebar 
-            activePage={activePage} 
-            setActivePage={setActivePage} 
-            onLogout={handleLogout} 
+        {/* Overlay mobile */}
+        {isMobile && isMobileSidebarOpen && (
+          <div
+            className="sidebar-overlay"
+            onClick={() => setIsMobileSidebarOpen(false)}
+          />
+        )}
+
+        <Sidebar
+            activePage={activePage}
+            setActivePage={(page: string) => {
+              setActivePage(page);
+              if (isMobile) setIsMobileSidebarOpen(false);
+            }}
+            onLogout={handleLogout}
             incidentCount={globalStats?.incidents_ouverts || 0}
             isCollapsed={isSidebarCollapsed}
             toggleCollapse={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+            isMobileOpen={isMobileSidebarOpen}
         />
-        
-        <main className="main-content" style={{ 
-            marginLeft: isSidebarCollapsed ? 'var(--sidebar-w-collapsed)' : 'var(--sidebar-w)',
+
+        <main className="main-content" style={{
+            marginLeft: isMobile ? 0 : (isSidebarCollapsed ? 'var(--sidebar-w-collapsed)' : 'var(--sidebar-w)'),
             transition: 'margin-left var(--transition-base)'
         }}>
-          <TopBar search={globalSearch} setSearch={setGlobalSearch} onLogout={handleLogout} />
+          <TopBar
+            search={globalSearch}
+            setSearch={setGlobalSearch}
+            onLogout={handleLogout}
+            onMenuClick={isMobile ? () => setIsMobileSidebarOpen(!isMobileSidebarOpen) : undefined}
+          />
           
           <div className="page-container">
             <header className="page-header">

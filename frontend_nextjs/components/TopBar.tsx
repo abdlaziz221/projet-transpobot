@@ -1,12 +1,12 @@
 /* eslint-disable */
 
 import React, { useEffect, useState } from 'react';
-import { Search, Bell, User, LogOut, Sun, Moon, Settings } from 'lucide-react';
+import { Search, Bell, User, LogOut, Sun, Moon, Settings, Menu } from 'lucide-react';
 import { fetchWithAuth } from '../lib/api';
 import { useToast } from './ui/Toast';
 import { useTheme } from '../context/ThemeContext';
 
-export default function TopBar({ search, setSearch, onLogout }: any) {
+export default function TopBar({ search, setSearch, onLogout, onMenuClick }: any) {
   const [profile, setProfile] = useState<any>(null);
   const [now, setNow] = useState(new Date());
   const toast = useToast();
@@ -43,6 +43,29 @@ export default function TopBar({ search, setSearch, onLogout }: any) {
       fontFamily: 'var(--font-sans)',
       boxShadow: 'var(--shadow-sm)',
     }}>
+
+      {/* ── HAMBURGER (mobile only) ── */}
+      {onMenuClick && (
+        <button
+          onClick={onMenuClick}
+          style={{
+            display: 'none',
+            width: '36px',
+            height: '36px',
+            borderRadius: '8px',
+            border: '1px solid var(--border)',
+            background: 'var(--bg-subtle)',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            color: 'var(--text-main)',
+            flexShrink: 0,
+          }}
+          className="mobile-menu-btn"
+        >
+          <Menu size={18} />
+        </button>
+      )}
 
       {/* ── SEARCH ── */}
       <div style={{
