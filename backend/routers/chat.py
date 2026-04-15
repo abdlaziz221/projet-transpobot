@@ -86,36 +86,54 @@ Q:taux occupation lignes→{"sql":"SELECT l.nom,ROUND(AVG(t.nb_passagers*100.0/v
 # ─────────────────────────────────────────────
 # DÉTECTION D'INTENTION  (questions sans SQL nécessaire)
 # ─────────────────────────────────────────────
-CONVERSATIONAL_PATTERNS = [
-    r"\b(bonjour|salut|bonsoir|hello|hi)\b",
-    r"\b(merci|thank|bravo)\b",
-    r"\b(comment (vas|allez|tu|vous))\b",
-    r"\b(qui es.tu|c'est quoi|présente.toi)\b",
-    r"\b(aide|help|que peux.tu|fonctionnalité)\b",
-]
+CONVERSATIONAL_PATTERNS = {
+    "greeting": r"(bonjour|salut|bonsoir|hello|hi|salam|bonne\s*(matin|après|soir)|good\s*(morning|evening|afternoon))",
+    "thanks":   r"(merci|thank|bravo|super|parfait|excellent|nickel|c('|')est\s*(bon|bien|super|ok)|d'accord|ok\s*$|bien\s*reçu)",
+    "help":     r"(aide|help|que\s*peux.tu|fonctionnalité|qu('|')est.ce\s*que\s*tu|comment.*utiliser|que.*faire|menu)",
+    "identity": r"(qui\s*(es|êtes).*(tu|vous)|présente.toi|c('|')est\s*quoi|tu\s*(es|fais|sais)|transpobot|assistant|bot)",
+}
 
 CONVERSATIONAL_RESPONSES = {
-    "greeting": "Bonjour ! Je suis TranspoBot, votre assistant de gestion de transport. Posez-moi des questions sur les trajets, chauffeurs, véhicules, incidents ou finances !",
+    "greeting": (
+        "Bonjour ! 👋 Je suis **TranspoBot**, votre assistant IA de gestion de transport.\n\n"
+        "Posez-moi vos questions sur :\n"
+        "• 🚌 Véhicules, chauffeurs, lignes\n"
+        "• 🛣️ Trajets, recettes, passagers\n"
+        "• 🔧 Maintenance, incidents\n\n"
+        "Exemple : *'Quel chauffeur a le plus d'incidents ce mois ?'*"
+    ),
     "help": (
         "Je peux vous aider sur :\n"
         "• 🚌 **Véhicules** – statuts, kilométrages, types\n"
         "• 👤 **Chauffeurs** – disponibilités, performances, incidents\n"
         "• 🛣️ **Lignes & Trajets** – recettes, passagers, planning\n"
-        "• 🔧 **Maintenance** – coûts, plannings, retards\n"
+        "• 🔧 **Maintenance** – coûts, plannings, urgences\n"
         "• ⚠️ **Incidents** – gravité, résolution\n"
         "• 💰 **Tarifs** – prix normal/étudiant par ligne\n\n"
-        "Exemple : *'Top 5 chauffeurs avec le plus d'incidents ce mois ?'*"
+        "Exemples :\n"
+        "• *'Top 5 chauffeurs avec le plus d'incidents'*\n"
+        "• *'Recettes par ligne ce mois'*\n"
+        "• *'Véhicules nécessitant une maintenance'*"
     ),
-    "thanks": "Avec plaisir ! N'hésitez pas si vous avez d'autres questions 😊",
-    "identity": "Je suis TranspoBot, un assistant IA spécialisé dans l'analyse de vos données de transport au Sénégal. Je génère des requêtes SQL et interprète les résultats pour vous.",
+    "thanks": "Avec plaisir ! 😊 N'hésitez pas si vous avez d'autres questions.",
+    "identity": (
+        "Je suis **TranspoBot Analyst** 🤖, un assistant IA spécialisé dans l'analyse des données de transport au Sénégal.\n\n"
+        "Je génère automatiquement des requêtes SQL à partir de vos questions en français ou anglais, "
+        "et j'interprète les résultats pour vous. Je peux analyser vos véhicules, chauffeurs, trajets, incidents, maintenances et finances."
+    ),
 }
 
 def detect_conversational_intent(question: str) -> str | None:
-    q = question.lower()
-    if re.search(CONVERSATIONAL_PATTERNS[0], q): return "greeting"
-    if re.search(CONVERSATIONAL_PATTERNS[4], q): return "help"
-    if re.search(CONVERSATIONAL_PATTERNS[2], q): return "thanks"  # merci
-    if re.search(CONVERSATIONAL_PATTERNS[3], q): return "identity"
+    """Détecte les intentions conversationnelles — fonctionne avec ou sans historique."""
+    q = question.strip().lower()
+    # Question très courte (≤ 20 chars) et aucun mot-clé métier → probablement conversationnel
+    has_business = re.search(r"(trajet|chauffeur|v[eé]hicule|incident|maintenance|ligne|recette|tarif|passager|km|planning)", q)
+    for intent, pattern in CONVERSATIONAL_PATTERNS.items():
+        if re.search(pattern, q):
+            return intent
+    # Fallback : question très courte sans mot métier → greeting
+    if len(q) <= 15 and not has_business:
+        return "greeting"
     return None
 
 
@@ -900,8 +918,9 @@ async def chat(
         q_lower  = question.lower()
 
         # ── 0. RÉPONSES CONVERSATIONNELLES (sans SQL) ──────────────────────
+        # Fonctionne toujours, même avec un historique de conversation
         intent_conv = detect_conversational_intent(q_lower)
-        if intent_conv and not req.history:
+        if intent_conv:
             return {"answer": CONVERSATIONAL_RESPONSES[intent_conv], "sql": None, "data": [], "intent": "conversationnel"}
 
         # ── 0b. RACCOURCIS INSTANTANÉS (bypass LLM) ─────────────────────────

@@ -639,11 +639,62 @@ tr:hover td {
 .btn-ghost {
   background: transparent;
   color: var(--text-muted);
+  border: 1px solid transparent;
 }
 
 .btn-ghost:hover {
   background: var(--bg-subtle);
   color: var(--text-main);
+  border-color: var(--border);
+}
+
+/* Outline Button */
+.btn-outline {
+  background: transparent;
+  border: 1.5px solid var(--border-strong);
+  color: var(--text-secondary);
+}
+
+.btn-outline:hover {
+  background: var(--bg-subtle);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+/* Mode clair : renforcer la visibilité des boutons ghost et outline */
+[data-theme="light"] .btn-ghost {
+  color: var(--text-secondary);
+  border-color: transparent;
+}
+
+[data-theme="light"] .btn-ghost:hover {
+  background: rgba(0,0,0,0.06);
+  border-color: var(--border);
+  color: var(--text-main);
+}
+
+[data-theme="light"] .btn-outline {
+  border-color: #94a3b8;
+  color: #1e293b;
+}
+
+[data-theme="light"] .btn-outline:hover {
+  background: rgba(196,88,30,0.06);
+  border-color: var(--primary);
+  color: var(--primary);
+}
+
+[data-theme="light"] .btn-secondary {
+  background: #ffffff;
+  border-color: #94a3b8;
+  color: #1e293b;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+}
+
+[data-theme="light"] .btn-secondary:hover {
+  background: #f8fafc;
+  border-color: var(--primary);
+  color: var(--primary);
 }
 
 /* Button Sizes */
@@ -1589,6 +1640,14 @@ textarea:focus-visible {
 /* Keep sidebar overlay class but unused on mobile (Sidebar handles its own) */
 .sidebar-overlay {
   display: none;
+}
+
+/* ── Masquer le badge Railway (widget plateforme, inutile pour les utilisateurs) ── */
+[data-railway-widget],
+#railway-image-modal,
+iframe[src*="railway"],
+div[style*="railway"] {
+  display: none !important;
 }
 
 /* ════════════════════════════════════════════════════════════
