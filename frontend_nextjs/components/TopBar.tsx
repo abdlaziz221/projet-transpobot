@@ -192,14 +192,14 @@ export default function TopBar({ search, setSearch, onLogout, onMenuClick }: any
             <p style={{
               fontSize: '13px',
               fontWeight: 700,
-              color: 'white',
+              color: 'var(--text-main)',
               lineHeight: 1.2,
             }}>
               {profile?.username || '…'}
             </p>
             <p style={{
               fontSize: '10px',
-              color: 'rgba(255,255,255,0.3)',
+              color: 'var(--text-muted)',
               textTransform: 'uppercase',
               fontWeight: 700,
               letterSpacing: '0.06em',
@@ -255,25 +255,25 @@ function TopBarIconBtn({ children, onClick, title }: {
         width: '34px',
         height: '34px',
         borderRadius: '8px',
-        border: '1px solid rgba(255,255,255,0.07)',
-        background: 'rgba(255,255,255,0.04)',
+        border: '1px solid var(--overlay-border)',
+        background: 'var(--overlay-bg)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         cursor: 'pointer',
-        color: 'rgba(255,255,255,0.45)',
+        color: 'var(--icon-color)',
         transition: 'all 0.2s',
         position: 'relative',
       }}
       onMouseEnter={e => {
-        e.currentTarget.style.background = 'rgba(255,255,255,0.08)';
-        e.currentTarget.style.color = 'rgba(255,255,255,0.8)';
-        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.12)';
+        e.currentTarget.style.background = 'var(--overlay-bg-hover)';
+        e.currentTarget.style.color = 'var(--icon-color-hover)';
+        e.currentTarget.style.borderColor = 'var(--overlay-border-hover)';
       }}
       onMouseLeave={e => {
-        e.currentTarget.style.background = 'rgba(255,255,255,0.04)';
-        e.currentTarget.style.color = 'rgba(255,255,255,0.45)';
-        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)';
+        e.currentTarget.style.background = 'var(--overlay-bg)';
+        e.currentTarget.style.color = 'var(--icon-color)';
+        e.currentTarget.style.borderColor = 'var(--overlay-border)';
       }}
     >
       {children}
