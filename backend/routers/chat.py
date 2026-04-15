@@ -145,9 +145,10 @@ def build_system_prompt() -> str:
     if _PROMPT_CACHE["prompt"] and (now - _PROMPT_CACHE["ts"]) < _PROMPT_TTL:
         return _PROMPT_CACHE["prompt"]
     today = datetime.now().strftime("%d/%m/%Y")
-    prompt = f"""Tu es un expert SQL SQLite. Date:{today}
+    prompt = f"""Tu es un expert SQL MySQL/MariaDB. Date:{today}
 {SCHEMA_INFO}
 {FEW_SHOT_EXAMPLES}
+Règles MySQL : utilise CURDATE() (pas date('now')), DATE_FORMAT(col,'%Y-%m') pour mois, TIMESTAMPDIFF(YEAR,col,CURDATE()) pour ancienneté, CONCAT() pour concat de chaînes.
 Réponds UNIQUEMENT JSON sans markdown:{{"sql":"SELECT...","answer":"réponse française","intent":"liste|statistique|financier|maintenance|incident"}}"""
     _PROMPT_CACHE["prompt"] = prompt
     _PROMPT_CACHE["ts"] = now
