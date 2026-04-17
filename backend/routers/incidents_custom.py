@@ -37,9 +37,9 @@ def list_incidents(
         Ligne.code.label("ligne_code"),
         Ligne.nom.label("ligne_nom"),
     ).join(Trajet, Incident.trajet_id == Trajet.id)\
-     .join(Chauffeur, Trajet.chauffeur_id == Chauffeur.id)\
-     .join(Vehicule, Trajet.vehicule_id == Vehicule.id)\
-     .join(Ligne, Trajet.ligne_id == Ligne.id)
+     .outerjoin(Chauffeur, Trajet.chauffeur_id == Chauffeur.id)\
+     .outerjoin(Vehicule, Trajet.vehicule_id == Vehicule.id)\
+     .outerjoin(Ligne, Trajet.ligne_id == Ligne.id)
 
     if gravite and gravite.lower() != "all":
         query = query.filter(Incident.gravite == gravite)
