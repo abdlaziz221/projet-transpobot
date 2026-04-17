@@ -179,7 +179,7 @@ CONVERSATIONAL_RESPONSES = {
     "thanks": "Avec plaisir ! 😊 N'hésitez pas si vous avez d'autres questions.",
     "identity": (
         "Je suis **TranspoBot Analyst** 🤖 — un assistant IA spécialisé dans l'analyse des données de transport.\n\n"
-        "Je lis votre question en français, génère automatiquement une requête SQL sur votre base MariaDB, "
+        "Je lis votre question en français, génère automatiquement une requête SQL sur votre base MySQL,"
         "exécute la requête et vous présente les résultats en langage naturel.\n\n"
         "Je peux analyser : véhicules, chauffeurs, trajets, lignes, incidents, maintenances et finances."
     ),

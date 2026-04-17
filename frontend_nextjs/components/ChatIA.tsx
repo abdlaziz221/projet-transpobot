@@ -369,7 +369,7 @@ function MessageBubble({ m, idx, onToggleSql, onCopySql, copied, onSpeak }: any)
 export default function ChatIA() {
   const [messages, setMessages] = useState<any[]>([{
     id: 'init', role: 'bot', isNew: false,
-    text: "Bonjour. Je suis **TranspoBot Analyst**, votre assistant IA connecté directement à la base de données MariaDB.\n\nJe génère des requêtes SQL en temps réel pour analyser votre flotte, vos revenus et vos performances. Posez votre question en français naturel.",
+    text: "Bonjour. Je suis **TranspoBot Analyst**, votre assistant IA connecté directement à la base de données MySQL.\n\nJe génère des requêtes SQL en temps réel pour analyser votre flotte, vos revenus et vos performances. Posez votre question en français naturel.",
     time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     showSql: false,
   }]);
@@ -588,7 +588,7 @@ export default function ChatIA() {
               ) : aiState === 'result' ? (
                 <span style={{ color: '#4ade80' }}>Résultats prêts ✓</span>
               ) : (
-                <span style={{ color: 'rgba(255,255,255,0.32)' }}>Prêt · MariaDB</span>
+                <span style={{ color: 'rgba(255,255,255,0.32)' }}>Prêt · MySQL</span>
               )}
             </div>
           </div>
@@ -609,7 +609,7 @@ export default function ChatIA() {
               animation: 'pulseLive 2s ease-in-out infinite',
             }} />
             <Database size={12} />
-            MariaDB
+            MySQL
           </div>
           {/* Auto-speak toggle */}
           {hasTts && (
