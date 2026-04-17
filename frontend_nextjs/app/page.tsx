@@ -3,6 +3,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { fetchWithAuth } from '../lib/api';
 
@@ -22,6 +23,7 @@ const MapView         = dynamic(() => import('../components/MapView'),         {
 const LoginPage       = dynamic(() => import('./login'), { ssr: false });
 
 export default function Home() {
+  const router = useRouter();
   const [token, setToken] = useState<string | null>(null);
   const [activePage, setActivePage] = useState('dashboard');
   const [globalStats, setGlobalStats] = useState<any>(null);
@@ -66,7 +68,14 @@ export default function Home() {
   };
 
   if (!token) {
-     return <LoginPage onLoginSuccess={() => setToken('authenticated')} />;
+     return <LoginPage onLoginSuccess={() => {
+       setToken('authenticated');
+       const urlParams = new URLSearchParams(window.location.search);
+       const redirect = urlParams.get('redirect');
+       if (redirect) {
+         router.push(redirect);
+       }
+     }} />;
   }
 
   return (

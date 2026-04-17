@@ -16,11 +16,11 @@ export default function ChatPage() {
     // Vérifie si l'utilisateur est connecté
     fetchWithAuth('/me').then(res => {
       if (!res.ok) {
-        // Non connecté → redirige vers la page principale (login)
-        router.replace('/');
+        // Non connecté → redirige vers la page principale (login) avec redirect
+        router.replace('/?redirect=/chat');
       }
     }).catch(() => {
-      router.replace('/');
+      router.replace('/?redirect=/chat');
     });
   }, [router]);
 
